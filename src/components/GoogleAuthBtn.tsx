@@ -9,16 +9,16 @@ export default function GoogleAuthBtn() {
 
   const handleSuccess = async (credentialResponse: any) => {
     try {
-      // 1. Get the ID Token from Google
+      // Get the ID Token from Google
       const { credential } = credentialResponse;
-      
-      // 2. Send it to Backend
+
+      // Send it to Backend
       const res = await api.post('/auth/google', { token: credential });
-      
-      // 3. Log the user in (save access token)
+
+      // Log the user in
       login(res.data.access_token);
-      
-      // 4. Redirect to Dashboard
+
+      // Redirect to Dashboard
       navigate('/dashboard');
     } catch (error) {
       console.error("Google Login Failed", error);

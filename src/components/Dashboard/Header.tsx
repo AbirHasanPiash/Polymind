@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 
@@ -31,9 +32,12 @@ export default function Header({ toggleSidebar, isMobile }: HeaderProps) {
         )}
         
         {/* Brand Name */}
-        <div className="text-lg md:text-xl font-bold bg-gradient-to-r from-blue-400 to-pink-500 bg-clip-text text-transparent">
+        <Link 
+          to="/" 
+          className="text-lg md:text-xl font-bold bg-gradient-to-r from-blue-400 to-pink-500 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+        >
            MultiAiModel
-        </div>
+        </Link>
       </div>
 
       <div className="flex items-center gap-4 sm:gap-6">

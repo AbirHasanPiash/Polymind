@@ -1,10 +1,13 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode, type Dispatch, type SetStateAction } from 'react';
 import api from '../api/client';
 import { useNavigate } from 'react-router-dom';
 
 interface User {
+  id: string;
   email: string;
   full_name?: string;
+  is_superuser: boolean;
+  is_active?: boolean;
   wallet?: {
     credits: number;
   };
@@ -18,6 +21,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   refreshProfile: () => Promise<void>;
+  // We add this so other pages can manually set user if needed
+  setUser: Dispatch<SetStateAction<User | null>>; 
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,21 +33,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Define the Fetch Logic Separately
   const fetchUserProfile = async (accessToken: string) => {
     try {
       const response = await api.get('/users/me', {
-        // Ensure we use the specific token passed in, or fallback to state
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       setUser(response.data);
-      console.log("User profile fetched successfully:", response.data);
     } catch (error) {
       console.error("Failed to fetch user:", error);
     }
   };
 
-  // Create the refreshProfile function
   const refreshProfile = async () => {
     if (token) {
       await fetchUserProfile(token);
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setIsLoading(true);
-    navigate('/');
+    navigate('/'); 
     setTimeout(() => {
       localStorage.removeItem('access_token');
       setToken(null);
@@ -65,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, 50);
   };
 
-  // Use Effect calls the shared logic
   useEffect(() => {
     const initAuth = async () => {
       if (!token) {
@@ -91,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login, 
       logout, 
       refreshProfile,
+      setUser,
       isAuthenticated: !!user, 
       isLoading 
     }}>

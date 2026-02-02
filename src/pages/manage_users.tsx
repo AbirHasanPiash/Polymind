@@ -3,13 +3,13 @@ import useSWR from 'swr';
 import api from '../api/client';
 import { 
   MagnifyingGlassIcon, 
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ShieldCheckIcon,
-  CreditCardIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  PencilSquareIcon,
+  ChevronLeftIcon, 
+  ChevronRightIcon, 
+  ShieldCheckIcon, 
+  CreditCardIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  PencilSquareIcon, 
   UserGroupIcon
 } from '@heroicons/react/24/outline';
 import EditUserModal from '../components/EditUserModal';
@@ -21,7 +21,6 @@ export default function ManageUsersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const size = 10;
 
@@ -43,7 +42,6 @@ export default function ManageUsersPage() {
     page: page.toString(),
     size: size.toString(),
     ...(debouncedSearch && { search: debouncedSearch }),
-    ...(statusFilter !== 'all' && { is_active: (statusFilter === 'active').toString() }),
     ...(roleFilter !== 'all' && { is_superuser: (roleFilter === 'admin').toString() }),
   });
 

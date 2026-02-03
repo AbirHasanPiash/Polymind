@@ -25,7 +25,7 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
     email: '',
     is_active: true,
     is_superuser: false,
-    credits: 0
+    credits: ''
   });
 
   // Reset form when user changes or modal opens
@@ -36,7 +36,7 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
         email: user.email || '',
         is_active: user.is_active,
         is_superuser: user.is_superuser,
-        credits: user.wallet?.credits || 0
+        credits: user.wallet?.credits?.toString() || '0'
       });
       document.body.style.overflow = 'hidden';
     } else {
@@ -50,7 +50,8 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
     setIsSaving(true);
     try {
       const payload = {
-        credits: formData.credits,
+        // Convert back to number/float when sending to backend
+        credits: parseFloat(formData.credits),
         is_superuser: formData.is_superuser
       };
       await onSave(user.id, payload);
@@ -69,16 +70,12 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
       onClick={(e) => { if (e.target === e.currentTarget && !isSaving) onClose(); }}
     >
-      {/* Backdrop */}
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]" />
 
-      {/* Modal Content */}
       <div className="relative w-full max-w-2xl transform overflow-hidden rounded-2xl bg-[#0f111a] border border-slate-800 shadow-2xl animate-[slideUp_0.3s_ease-out]">
         
-        {/* Glow Effect */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-600 opacity-80" />
 
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800/50 bg-slate-900/30">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
@@ -95,11 +92,9 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Full Name */}
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 ml-1 flex items-center gap-1">
                 Full Name <LockClosedIcon className="w-3 h-3" />
@@ -115,7 +110,6 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
               </div>
             </div>
 
-            {/* Email */}
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 ml-1 flex items-center gap-1">
                 Email Address <LockClosedIcon className="w-3 h-3" />
@@ -131,7 +125,6 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
               </div>
             </div>
 
-            {/* Account Status */}
              <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 ml-1 flex items-center gap-1">
                 Account Status <LockClosedIcon className="w-3 h-3" />
@@ -157,16 +150,15 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
                 <CreditCardIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-purple-400 transition-colors" />
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0"
                   value={formData.credits}
-                  onChange={(e) => setFormData({...formData, credits: parseFloat(e.target.value)})}
+                  onChange={(e) => setFormData({...formData, credits: e.target.value})}
                   className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all placeholder:text-gray-600 font-mono"
                 />
               </div>
             </div>
 
-            {/* Superuser Status */}
             <div className="md:col-span-2 p-4 bg-slate-900/30 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
@@ -188,7 +180,6 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
 
           </div>
 
-          {/* Footer */}
           <div className="pt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-slate-800/50">
             <button
               type="button"

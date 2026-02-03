@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircleIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
-import { SparklesIcon } from '@heroicons/react/24/outline';
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
@@ -11,10 +10,10 @@ export default function PaymentSuccessPage() {
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
-    // 1. Refresh User Wallet Balance immediately
+    // Refresh user wallet balance
     refreshProfile();
 
-    // 2. Countdown timer for auto-redirect
+    // Countdown timer for auto-redirect
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -30,46 +29,72 @@ export default function PaymentSuccessPage() {
   }, [navigate, refreshProfile]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-[#0a0b0f] relative overflow-hidden">
-      {/* Background Ambience */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-green-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 px-4 py-8 sm:px-6 lg:px-8">
+      {/* Subtle gradient orb */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-green-500/5 rounded-full blur-3xl"></div>
+      </div>
 
-      <div className="relative z-10 flex flex-col items-center text-center p-8 max-w-md w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-        
-        {/* Animated Icon */}
-        <div className="mb-8 relative">
-          <div className="absolute inset-0 bg-green-500/20 rounded-full blur-xl animate-pulse"></div>
-          <div className="w-24 h-24 bg-[#0f1117] border-2 border-green-500 rounded-full flex items-center justify-center relative shadow-2xl shadow-green-900/50">
-             <CheckCircleIcon className="w-12 h-12 text-green-500" />
+      <div className="relative w-full max-w-md">
+        {/* Card container */}
+        <div className="bg-gray-900/50 backdrop-blur-xl border border-gray-800/50 rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+          
+          {/* Success icon with animation */}
+          <div className="flex justify-center mb-6 sm:mb-8">
+            <div className="relative">
+              {/* Glow effect */}
+              <div className="absolute inset-0 bg-green-500/20 rounded-full blur-2xl animate-pulse"></div>
+              {/* Icon container */}
+              <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-green-500/10 border-2 border-green-500/50 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <CheckCircleIcon className="w-10 h-10 sm:w-12 sm:h-12 text-green-500 animate-in zoom-in duration-500 delay-150" />
+              </div>
+            </div>
           </div>
-          {/* Decorative Sparkles */}
-          <SparklesIcon className="absolute -top-2 -right-2 w-8 h-8 text-yellow-400 animate-bounce" />
-          <SparklesIcon className="absolute bottom-0 -left-4 w-6 h-6 text-yellow-400 animate-pulse delay-75" />
+
+          {/* Title and description */}
+          <div className="text-center mb-8 sm:mb-10">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2 sm:mb-3 tracking-tight">
+              Payment Successful!
+            </h1>
+            <p className="text-sm sm:text-base text-gray-400 leading-relaxed px-2">
+              Your credits have been added to your wallet.
+            </p>
+          </div>
+
+          {/* Transaction ID */}
+          <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-5 mb-6 sm:mb-8">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">
+              Transaction ID
+            </p>
+            <p className="text-xs sm:text-sm font-mono text-gray-300 text-center break-all px-2">
+              {searchParams.get('session_id') || 'Processing...'}
+            </p>
+          </div>
+
+          {/* Action button */}
+          <button 
+            onClick={() => navigate('/dashboard/billing')}
+            className="w-full bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-semibold py-3 sm:py-3.5 md:py-4 rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg shadow-green-900/30 hover:shadow-green-900/40 flex items-center justify-center gap-2 group text-sm sm:text-base"
+          >
+            Go to Billing
+            <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform duration-200" />
+          </button>
+
+          {/* Countdown */}
+          <div className="mt-6 sm:mt-8 text-center">
+            <p className="text-xs sm:text-sm text-gray-500">
+              Redirecting in{' '}
+              <span className="inline-flex items-center justify-center min-w-[2ch] font-mono text-white font-semibold">
+                {countdown}
+              </span>
+              {' '}second{countdown !== 1 ? 's' : ''}...
+            </p>
+          </div>
         </div>
 
-        <h1 className="text-3xl font-bold text-white mb-2">Payment Successful!</h1>
-        <p className="text-gray-400 mb-8">
-          Thank you for your purchase. Your credits have been added to your wallet securely.
-        </p>
-
-        <div className="bg-[#13161f] border border-gray-800 rounded-xl p-4 w-full mb-8 flex flex-col items-center">
-             <p className="text-xs text-gray-500 uppercase font-medium mb-1">Transaction ID</p>
-             <p className="text-sm font-mono text-gray-300 break-all">
-                {searchParams.get('session_id') || 'Processing...'}
-             </p>
-        </div>
-
-        <button 
-          onClick={() => navigate('/dashboard/billing')}
-          className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-green-900/20 flex items-center justify-center gap-2 group"
-        >
-          Go to Billing
-          <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </button>
-
-        <p className="mt-6 text-sm text-gray-500">
-          Redirecting in <span className="text-white font-mono">{countdown}</span> seconds...
-        </p>
+        {/* Decorative elements */}
+        <div className="absolute -top-4 -right-4 w-20 h-20 bg-green-500/5 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="absolute -bottom-4 -left-4 w-20 h-20 bg-green-500/5 rounded-full blur-2xl pointer-events-none"></div>
       </div>
     </div>
   );

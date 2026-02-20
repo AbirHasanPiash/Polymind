@@ -1,73 +1,108 @@
-# React + TypeScript + Vite
+# 🎨 MultiAIModel Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend application for **MultiAIModel** - a multi-modal AI platform that integrates multiple AI providers into a unified wallet-based experience.
 
-Currently, two official plugins are available:
+Built as a modern Single Page Application (SPA) using React and TypeScript, this frontend connects to the FastAPI backend via REST APIs and WebSockets.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 🚀 Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+* **React 19**
+* **TypeScript**
+* **Vite**
+* **Tailwind CSS 4**
+* **React Router v7**
+* **Axios** (API communication)
+* **SWR** (data fetching & caching)
+* **Recharts** (admin analytics)
+* **React Markdown + KaTeX** (chat rendering, code snippet formatting)
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 📂 Project Structure
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+src/
+├── api/          # Axios client & interceptors
+├── components/   # Reusable UI components
+├── context/      # Global state (Auth, Chat Reset)
+├── layouts/      # Dashboard layout structure
+├── pages/        # Application pages (Chat, Media, Billing, Admin)
+└── App.tsx       # Routing configuration
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## ⚙️ Environment Setup
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1️⃣ Clone Repository
+
+```bash
+git clone https://github.com/AbirHasanPiash/multimodal-ai-frontend
+cd multiaimodel-frontend
 ```
+
+### 2️⃣ Install Dependencies
+
+```bash
+npm install
+```
+
+### 3️⃣ Configure Environment Variables
+
+Create a `.env` file:
+
+```env
+VITE_API_URL=
+```
+
+---
+
+## ▶️ Run Development Server
+
+```bash
+npm run dev
+```
+
+Application runs at:
+
+```
+http://localhost:5173
+```
+
+---
+
+## 🔐 Core Features
+
+* Secure authentication (JWT + Google OAuth)
+* Real-time AI chat via WebSockets
+* Image, TTS, and Avatar generation
+* Wallet & credit tracking
+* Stripe-based billing integration
+* Admin dashboard (stats, users, packages)
+* Responsive layout (desktop & mobile)
+
+---
+
+## 🏗 Build for Production
+
+```bash
+npm run build
+```
+
+Production files will be generated in the `dist/` folder.
+
+---
+
+## 🔗 Backend Dependency
+
+This frontend requires the MultiAIModel backend API to be running.
+
+Ensure:
+
+* Correct `VITE_API_URL`
+* CORS configured on backend
+* WebSocket endpoint accessible
+
+---

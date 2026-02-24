@@ -70,32 +70,32 @@ export default function ManageUsersPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0b0f] text-gray-100 overflow-hidden font-sans">
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar">
+    <div className="flex flex-col h-full bg-blue-50 dark:bg-[#0a0b0f] text-slate-900 dark:text-gray-100 overflow-hidden font-sans transition-colors duration-300">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         <div className="max-w-7xl mx-auto space-y-6">
           
           {/* Header Area */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/50 pb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/50 pb-6">
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                <UserGroupIcon className="w-8 h-8 text-blue-500" />
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+                <UserGroupIcon className="w-8 h-8 text-blue-600 dark:text-blue-500" />
                 User Management
               </h1>
-              <p className="text-sm text-gray-400 mt-2">Monitor access levels and manage user wallet balances.</p>
+              <p className="text-sm text-slate-500 dark:text-gray-400 mt-2">Monitor access levels and manage user wallet balances.</p>
             </div>
           </div>
 
           {/* Filters Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-900/40 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white dark:bg-slate-900/40 backdrop-blur-md border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
             {/* Search */}
             <div className="relative md:col-span-3 group">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-gray-500 group-focus-within:text-blue-500 transition-colors" />
               <input 
                 type="text" 
                 placeholder="Search by name or email..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all text-white placeholder-gray-600"
+                className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600"
               />
             </div>
 
@@ -104,7 +104,7 @@ export default function ManageUsersPage() {
               <select 
                 value={roleFilter}
                 onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-                className="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none text-gray-300 cursor-pointer hover:bg-slate-900/80 transition-colors"
+                className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none text-slate-700 dark:text-gray-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900/80 transition-colors"
               >
                 <option value="all">All Roles</option>
                 <option value="admin">Admins</option>
@@ -114,10 +114,10 @@ export default function ManageUsersPage() {
           </div>
 
           {/* Table Container */}
-          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl overflow-hidden overflow-x-auto shadow-2xl relative min-h-[400px]">
+          <div className="bg-white dark:bg-slate-900/40 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden overflow-x-auto shadow-sm dark:shadow-2xl relative min-h-[400px]">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="bg-slate-950/50 border-b border-slate-800/80 text-gray-400">
+                <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800/80 text-slate-500 dark:text-gray-400">
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">User Details</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Status & Role</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Wallet</th>
@@ -125,13 +125,13 @@ export default function ManageUsersPage() {
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-right">Edit</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/50">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                 {isLoading && !data ? (
                   <TableSkeleton rows={5} />
                 ) : error ? (
                    <tr>
                     <td colSpan={5} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center justify-center gap-2 text-red-400">
+                      <div className="flex flex-col items-center justify-center gap-2 text-rose-500 dark:text-red-400">
                         <XCircleIcon className="w-8 h-8" />
                         <span className="font-medium">Failed to load users</span>
                       </div>
@@ -139,23 +139,23 @@ export default function ManageUsersPage() {
                   </tr>
                 ) : data?.users.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-16 text-center text-gray-500 italic">
+                    <td colSpan={5} className="px-6 py-16 text-center text-slate-500 dark:text-gray-500 italic">
                       No users found matching your criteria.
                     </td>
                   </tr>
                 ) : (
                   data?.users.map((u: any) => (
-                    <tr key={u.id} className="hover:bg-slate-800/30 transition-colors group">
+                    <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                       
                       {/* Name/Email */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-lg ring-2 ring-slate-800 ${u.is_superuser ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'}`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm ring-2 ring-slate-100 dark:ring-slate-800 ${u.is_superuser ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'}`}>
                             {u.email[0].toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-white truncate max-w-[150px] lg:max-w-[200px]">{u.full_name || 'No Name'}</p>
-                            <p className="text-xs text-gray-500 font-mono">{u.email}</p>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[150px] lg:max-w-[200px]">{u.full_name || 'No Name'}</p>
+                            <p className="text-xs text-slate-500 dark:text-gray-500 font-mono">{u.email}</p>
                           </div>
                         </div>
                       </td>
@@ -165,14 +165,14 @@ export default function ManageUsersPage() {
                         <div className="flex flex-col gap-2 items-start">
                           <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
                             u.is_active 
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                              : 'bg-red-500/10 text-red-400 border-red-500/20'
+                              ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20' 
+                              : 'bg-rose-100 dark:bg-red-500/10 text-rose-700 dark:text-red-400 border-rose-200 dark:border-red-500/20'
                           }`}>
                             {u.is_active ? <CheckCircleIcon className="w-3 h-3" /> : <XCircleIcon className="w-3 h-3" />}
                             {u.is_active ? 'Active' : 'Banned'}
                           </span>
                           {u.is_superuser && (
-                            <div className="flex items-center gap-1 text-[10px] font-bold text-orange-400 uppercase tracking-widest pl-1">
+                            <div className="flex items-center gap-1 text-[10px] font-bold text-orange-500 dark:text-orange-400 uppercase tracking-widest pl-1">
                               <ShieldCheckIcon className="w-3 h-3" /> Admin
                             </div>
                           )}
@@ -182,17 +182,17 @@ export default function ManageUsersPage() {
                       {/* Wallet */}
                       <td className="px-6 py-4">
                          <div className="flex items-center gap-2">
-                            <div className="p-1.5 bg-purple-500/10 rounded-lg">
-                              <CreditCardIcon className="w-4 h-4 text-purple-400" />
+                            <div className="p-1.5 bg-purple-100 dark:bg-purple-500/10 rounded-lg">
+                              <CreditCardIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                             </div>
-                            <span className="text-sm font-mono font-medium text-gray-200">
+                            <span className="text-sm font-mono font-medium text-slate-700 dark:text-gray-200">
                                {Number(u.wallet?.credits || 0).toLocaleString()} Credits
                             </span>
                          </div>
                       </td>
 
                       {/* Date */}
-                      <td className="px-6 py-4 text-xs text-gray-500 font-medium">
+                      <td className="px-6 py-4 text-xs text-slate-500 dark:text-gray-500 font-medium">
                         {new Date(u.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                       </td>
 
@@ -201,7 +201,7 @@ export default function ManageUsersPage() {
                         <div className="flex items-center justify-end">
                           <button 
                             onClick={() => openEditModal(u)}
-                            className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all" 
+                            className="p-2 text-slate-400 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-xl transition-all" 
                             title="Edit User"
                           >
                             <PencilSquareIcon className="w-5 h-5" />
@@ -217,27 +217,27 @@ export default function ManageUsersPage() {
 
           {/* Pagination */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 pb-12">
-            <p className="text-sm text-gray-500">
-              Showing <span className="text-white font-medium">{(page - 1) * size + 1}</span> to <span className="text-white font-medium">{Math.min(page * size, data?.total_count || 0)}</span> of <span className="text-white font-medium">{data?.total_count || 0}</span>
+            <p className="text-sm text-slate-500 dark:text-gray-500">
+              Showing <span className="text-slate-900 dark:text-white font-medium">{(page - 1) * size + 1}</span> to <span className="text-slate-900 dark:text-white font-medium">{Math.min(page * size, data?.total_count || 0)}</span> of <span className="text-slate-900 dark:text-white font-medium">{data?.total_count || 0}</span>
             </p>
             <div className="flex items-center gap-2">
               <button 
                 disabled={page === 1 || isLoading}
                 onClick={() => setPage(p => p - 1)}
-                className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm text-gray-400 disabled:opacity-30 hover:text-white hover:border-slate-700 transition-all"
+                className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-600 dark:text-gray-400 disabled:opacity-30 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 transition-all"
               >
                 <ChevronLeftIcon className="w-4 h-4" />
                 Prev
               </button>
               
-              <div className="flex items-center px-4 py-2 bg-slate-950/50 border border-slate-800 rounded-xl text-xs font-bold text-blue-400">
+              <div className="flex items-center px-4 py-2 bg-slate-100 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-blue-600 dark:text-blue-400">
                 {page} / {totalPages || 1}
               </div>
 
               <button 
                 disabled={page >= totalPages || isLoading}
                 onClick={() => setPage(p => p + 1)}
-                className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm text-gray-400 disabled:opacity-30 hover:text-white hover:border-slate-700 transition-all"
+                className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-600 dark:text-gray-400 disabled:opacity-30 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 transition-all"
               >
                 Next
                 <ChevronRightIcon className="w-4 h-4" />
@@ -263,25 +263,25 @@ function TableSkeleton({ rows }: { rows: number }) {
   return (
     <>
       {[...Array(rows)].map((_, i) => (
-        <tr key={i} className="animate-pulse border-b border-slate-800/50">
+        <tr key={i} className="animate-pulse border-b border-slate-200 dark:border-slate-800/50">
           <td className="px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-slate-800 rounded-xl"></div>
+              <div className="w-10 h-10 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
               <div className="space-y-2">
-                <div className="h-4 w-32 bg-slate-800 rounded"></div>
-                <div className="h-3 w-24 bg-slate-800 rounded"></div>
+                <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                <div className="h-3 w-24 bg-slate-200 dark:bg-slate-800 rounded"></div>
               </div>
             </div>
           </td>
           <td className="px-6 py-4">
             <div className="space-y-2">
-              <div className="h-5 w-16 bg-slate-800 rounded-full"></div>
-              <div className="h-3 w-12 bg-slate-800 rounded pl-1"></div>
+              <div className="h-5 w-16 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+              <div className="h-3 w-12 bg-slate-200 dark:bg-slate-800 rounded pl-1"></div>
             </div>
           </td>
-          <td className="px-6 py-4"><div className="h-4 w-12 bg-slate-800 rounded"></div></td>
-          <td className="px-6 py-4"><div className="h-4 w-20 bg-slate-800 rounded"></div></td>
-          <td className="px-6 py-4"><div className="flex justify-end gap-2"><div className="h-8 w-8 bg-slate-800 rounded-lg"></div></div></td>
+          <td className="px-6 py-4"><div className="h-4 w-12 bg-slate-200 dark:bg-slate-800 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 w-20 bg-slate-200 dark:bg-slate-800 rounded"></div></td>
+          <td className="px-6 py-4"><div className="flex justify-end gap-2"><div className="h-8 w-8 bg-slate-200 dark:bg-slate-800 rounded-lg"></div></div></td>
         </tr>
       ))}
     </>

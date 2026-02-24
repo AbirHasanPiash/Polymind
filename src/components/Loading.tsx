@@ -1,12 +1,13 @@
 const Loading = () => {
   return (
-    <div className="flex h-screen items-center justify-center bg-[#0f1117] text-white overflow-hidden">
+    <div className="flex h-screen w-full items-center justify-center bg-blue-50 dark:bg-[#0a0b0f] text-slate-900 dark:text-white overflow-hidden transition-colors duration-300">
       <div className="relative flex flex-col items-center">
+        
         {/* Animated Background Rings */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="absolute h-32 w-32 sm:h-40 sm:w-40 md:h-48 md:w-48 rounded-full border border-indigo-500/20 animate-ping" 
+          <div className="absolute h-32 w-32 sm:h-40 sm:w-40 md:h-48 md:w-48 rounded-full border border-indigo-200 dark:border-indigo-500/20 animate-ping" 
                style={{ animationDuration: '3s' }} />
-          <div className="absolute h-40 w-40 sm:h-48 sm:w-48 md:h-56 md:w-56 rounded-full border border-purple-500/20 animate-ping" 
+          <div className="absolute h-40 w-40 sm:h-48 sm:w-48 md:h-56 md:w-56 rounded-full border border-purple-200 dark:border-purple-500/20 animate-ping" 
                style={{ animationDuration: '4s', animationDelay: '0.5s' }} />
         </div>
 
@@ -89,7 +90,7 @@ const Loading = () => {
             {['L', 'O', 'A', 'D', 'I', 'N', 'G'].map((letter, index) => (
               <span
                 key={index}
-                className="text-sm sm:text-base md:text-lg font-semibold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 animate-pulse"
+                className="text-sm sm:text-base md:text-lg font-semibold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 animate-pulse"
                 style={{
                   animationDelay: `${index * 0.1}s`,
                   animationDuration: '1.5s'
@@ -113,15 +114,10 @@ const Loading = () => {
               />
             ))}
           </div>
-
-          {/* Subtitle */}
-          <p className="text-xs sm:text-sm text-gray-500 tracking-wide animate-pulse px-4 text-center">
-            Preparing your experience
-          </p>
         </div>
 
-        {/* Bottom Glow Effect */}
-        <div className="absolute -bottom-10 sm:-bottom-12 md:-bottom-16 left-1/2 -translate-x-1/2 h-16 sm:h-20 md:h-24 w-32 sm:w-40 md:w-48 bg-gradient-to-t from-indigo-500/20 to-transparent blur-2xl rounded-full" />
+        {/* Bottom Glow Effect - Adaptive Opacity */}
+        <div className="absolute -bottom-10 sm:-bottom-12 md:-bottom-16 left-1/2 -translate-x-1/2 h-16 sm:h-20 md:h-24 w-32 sm:w-40 md:w-48 bg-gradient-to-t from-blue-200/50 dark:from-indigo-500/20 to-transparent blur-2xl rounded-full" />
       </div>
     </div>
   );

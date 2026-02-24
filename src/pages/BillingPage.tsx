@@ -78,24 +78,24 @@ export default function BillingPage() {
   if (!user) return <Loading />;
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-[#0a0b0f] via-[#0d0e14] to-[#0a0b0f] relative overflow-hidden overflow-y-auto">
+    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] relative overflow-hidden overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] transition-colors duration-300">
       <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 pb-24">
         {/* Header & Wallet Section */}
         <div className="flex flex-col lg:flex-row gap-8 mb-12 animate-in fade-in slide-in-from-top-4 duration-500">
           {/* Left: Title & Intro */}
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3 mb-2">
-              <CreditCardIcon className="w-8 h-8 text-blue-500" />
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3 mb-2">
+              <CreditCardIcon className="w-8 h-8 text-blue-600 dark:text-blue-500" />
               Billing & Credits
             </h1>
-            <p className="text-gray-400 text-lg max-w-xl leading-relaxed">
+            <p className="text-slate-500 dark:text-gray-400 text-lg max-w-xl leading-relaxed">
               Manage your subscription and credit balance. Purchase more credits
               to generate high-fidelity AI avatars and voices.
             </p>
 
-            <div className="flex items-center gap-4 mt-6 text-sm text-gray-500">
+            <div className="flex items-center gap-4 mt-6 text-sm text-slate-500 dark:text-gray-500">
               <div className="flex items-center gap-1.5">
-                <ShieldCheckIcon className="w-4 h-4 text-green-500" />
+                <ShieldCheckIcon className="w-4 h-4 text-emerald-500" />
                 <span>Secure Payment via Stripe</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -107,34 +107,34 @@ export default function BillingPage() {
 
           {/* Right: Digital Wallet Card */}
           <div className="w-full lg:w-96">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-900/40 to-purple-900/40 border border-white/10 p-6 shadow-2xl backdrop-blur-md group">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-purple-700 dark:from-blue-900/40 dark:to-purple-900/40 border border-white/20 dark:border-white/10 p-6 shadow-2xl backdrop-blur-md group">
               {/* Background Decor */}
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-all duration-700"></div>
-              <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl group-hover:bg-purple-500/30 transition-all duration-700"></div>
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 dark:bg-blue-500/20 rounded-full blur-3xl group-hover:bg-white/20 dark:group-hover:bg-blue-500/30 transition-all duration-700"></div>
+              <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 dark:bg-purple-500/20 rounded-full blur-3xl group-hover:bg-white/20 dark:group-hover:bg-purple-500/30 transition-all duration-700"></div>
 
-              <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+              <div className="relative z-10 flex flex-col h-full justify-between gap-6 text-white">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-blue-200 text-sm font-medium uppercase tracking-wider">
+                    <p className="text-blue-100 text-sm font-medium uppercase tracking-wider">
                       Current Balance
                     </p>
-                    <h2 className="text-4xl font-bold text-white mt-1 font-mono tracking-tight">
+                    <h2 className="text-4xl font-bold mt-1 font-mono tracking-tight">
                       {displayCredits}
                     </h2>
                   </div>
-                  <div className="p-2 bg-white/10 rounded-lg backdrop-blur-md">
-                    <BoltIcon className="w-6 h-6 text-yellow-400" />
+                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
+                    <BoltIcon className="w-6 h-6 text-yellow-300" />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-gray-300">
+                  <div className="flex justify-between text-xs text-blue-100">
                     <span>Account Status</span>
-                    <span className="text-green-400 font-medium">Active</span>
+                    <span className="text-emerald-300 font-medium">Active</span>
                   </div>
-                  <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-blue-400 to-purple-400 w-full animate-pulse"></div>
+                  <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden">
+                    <div className="h-full bg-white/80 w-full animate-pulse"></div>
                   </div>
-                  <p className="text-[10px] text-gray-400 text-right mt-1">
+                  <p className="text-[10px] text-blue-100/80 text-right mt-1">
                     {user.email}
                   </p>
                 </div>
@@ -145,8 +145,8 @@ export default function BillingPage() {
 
         {/* Packages Grid */}
         <div className="mb-16">
-          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-            <SparklesIcon className="w-5 h-5 text-yellow-500" />
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+            <SparklesIcon className="w-5 h-5 text-amber-500" />
             Available Packages
           </h3>
 
@@ -166,8 +166,8 @@ export default function BillingPage() {
                     className={`relative flex flex-col p-6 rounded-2xl border transition-all duration-300 group
                                 ${
                                   pkg.is_featured
-                                    ? "bg-[#0f1117] border-blue-500/50 shadow-lg shadow-blue-900/10 scale-[1.02] hover:scale-[1.03]"
-                                    : "bg-[#0f1117]/60 border-slate-800 hover:border-slate-600 hover:bg-[#0f1117]"
+                                    ? "bg-white dark:bg-[#0f1117] border-blue-500 shadow-xl shadow-blue-500/10 scale-[1.02] hover:scale-[1.03] z-10"
+                                    : "bg-white dark:bg-[#0f1117]/60 border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-slate-600 hover:shadow-lg"
                                 }
                             `}
                   >
@@ -178,41 +178,41 @@ export default function BillingPage() {
                     )}
 
                     <div className="mb-4">
-                      <h4 className="text-lg font-bold text-white">
+                      <h4 className="text-lg font-bold text-slate-900 dark:text-white">
                         {pkg.name}
                       </h4>
-                      <p className="text-sm text-gray-400 h-10 line-clamp-2 mt-1">
+                      <p className="text-sm text-slate-500 dark:text-gray-400 h-10 line-clamp-2 mt-1">
                         {pkg.description}
                       </p>
                     </div>
 
                     <div className="flex items-baseline gap-1 mb-6">
-                      <span className="text-3xl font-bold text-white">
+                      <span className="text-3xl font-bold text-slate-900 dark:text-white">
                         ${pkg.price}
                       </span>
-                      <span className="text-sm text-gray-500">USD</span>
+                      <span className="text-sm text-slate-500 dark:text-gray-500">USD</span>
                     </div>
 
                     <ul className="space-y-3 mb-8 flex-1">
-                      <li className="flex items-center gap-3 text-sm text-gray-300">
-                        <div className="p-1 rounded-full bg-blue-500/10 text-blue-400">
+                      <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-gray-300">
+                        <div className="p-1 rounded-full bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
                           <BoltIcon className="w-3.5 h-3.5" />
                         </div>
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-slate-900 dark:text-white">
                           {Number(pkg.credits ?? 0).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })} credits
                         </span>
                       </li>
-                      <li className="flex items-center gap-3 text-sm text-gray-300">
-                        <div className="p-1 rounded-full bg-green-500/10 text-green-400">
+                      <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-gray-300">
+                        <div className="p-1 rounded-full bg-emerald-100 dark:bg-green-500/10 text-emerald-600 dark:text-green-400">
                           <CheckCircleIcon className="w-3.5 h-3.5" />
                         </div>
                         <span>Instant delivery</span>
                       </li>
-                      <li className="flex items-center gap-3 text-sm text-gray-300">
-                        <div className="p-1 rounded-full bg-purple-500/10 text-purple-400">
+                      <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-gray-300">
+                        <div className="p-1 rounded-full bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400">
                           <SparklesIcon className="w-3.5 h-3.5" />
                         </div>
                         {/* Calculate cost per credit for display */}
@@ -228,8 +228,8 @@ export default function BillingPage() {
                       className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2
                                     ${
                                       pkg.is_featured
-                                        ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20"
-                                        : "bg-white text-black hover:bg-gray-200"
+                                        ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/30"
+                                        : "bg-slate-100 dark:bg-white text-slate-900 dark:text-black hover:bg-slate-200 dark:hover:bg-gray-200"
                                     }
                                     ${
                                       purchasingId && purchasingId !== pkg.id
@@ -258,15 +258,15 @@ export default function BillingPage() {
 
         {/* Transaction History */}
         <div className="relative">
-          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-            <ClockIcon className="w-5 h-5 text-gray-400" />
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+            <ClockIcon className="w-5 h-5 text-slate-400 dark:text-gray-400" />
             Transaction History
           </h3>
 
-          <div className="bg-[#0f1117] border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-slate-900/50 text-xs uppercase font-medium text-gray-500 border-b border-slate-800">
+              <table className="w-full text-left text-sm text-slate-600 dark:text-gray-400">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 text-xs uppercase font-medium text-slate-500 dark:text-gray-500 border-b border-slate-200 dark:border-slate-800">
                   <tr>
                     <th className="px-6 py-4">Date</th>
                     <th className="px-6 py-4">Status</th>
@@ -274,22 +274,22 @@ export default function BillingPage() {
                     <th className="px-6 py-4 text-right">Credits</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/50">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                   {loadingHistory ? (
                     // Skeleton Rows
                     [1, 2, 3].map((i) => (
                       <tr key={i} className="animate-pulse">
                         <td className="px-6 py-4">
-                          <div className="h-4 w-24 bg-slate-800 rounded"></div>
+                          <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded"></div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="h-4 w-16 bg-slate-800 rounded"></div>
+                          <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded"></div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="h-4 w-12 bg-slate-800 rounded"></div>
+                          <div className="h-4 w-12 bg-slate-200 dark:bg-slate-800 rounded"></div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="h-4 w-12 bg-slate-800 rounded ml-auto"></div>
+                          <div className="h-4 w-12 bg-slate-200 dark:bg-slate-800 rounded ml-auto"></div>
                         </td>
                       </tr>
                     ))
@@ -297,7 +297,7 @@ export default function BillingPage() {
                     <tr>
                       <td
                         colSpan={4}
-                        className="px-6 py-8 text-center text-gray-500"
+                        className="px-6 py-8 text-center text-slate-500"
                       >
                         No transactions found.
                       </td>
@@ -306,11 +306,11 @@ export default function BillingPage() {
                     transactions?.map((tx) => (
                       <tr
                         key={tx.id}
-                        className="hover:bg-white/[0.02] transition-colors"
+                        className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors"
                       >
-                        <td className="px-6 py-4 text-white font-mono">
+                        <td className="px-6 py-4 text-slate-900 dark:text-white font-mono">
                           {new Date(tx.created_at).toLocaleDateString()}
-                          <span className="text-gray-600 text-xs ml-2">
+                          <span className="text-slate-400 dark:text-gray-600 text-xs ml-2">
                             {new Date(tx.created_at).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -322,10 +322,10 @@ export default function BillingPage() {
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
                                                 ${
                                                   tx.status === "completed"
-                                                    ? "bg-green-500/10 text-green-400 border-green-500/20"
+                                                    ? "bg-emerald-100 dark:bg-green-500/10 text-emerald-600 dark:text-green-400 border-emerald-200 dark:border-green-500/20"
                                                     : tx.status === "pending"
-                                                    ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
-                                                    : "bg-red-500/10 text-red-400 border-red-500/20"
+                                                    ? "bg-amber-100 dark:bg-yellow-500/10 text-amber-600 dark:text-yellow-400 border-amber-200 dark:border-yellow-500/20"
+                                                    : "bg-rose-100 dark:bg-red-500/10 text-rose-600 dark:text-red-400 border-rose-200 dark:border-red-500/20"
                                                 }
                                             `}
                           >
@@ -342,11 +342,11 @@ export default function BillingPage() {
                               tx.status.slice(1)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-white">
+                        <td className="px-6 py-4 text-slate-900 dark:text-white">
                           ${Number(tx.amount).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <span className="text-purple-400 font-mono font-medium">
+                          <span className="text-purple-600 dark:text-purple-400 font-mono font-medium">
                             +{Number(tx.credits_added).toFixed(1)}
                           </span>
                         </td>
@@ -367,17 +367,17 @@ export default function BillingPage() {
 
 function SkeletonPackage() {
   return (
-    <div className="bg-[#0f1117]/60 border border-slate-800 rounded-2xl p-6 animate-pulse">
-      <div className="h-6 w-3/4 bg-slate-800 rounded mb-4"></div>
-      <div className="h-4 w-full bg-slate-800 rounded mb-2"></div>
-      <div className="h-4 w-2/3 bg-slate-800 rounded mb-6"></div>
-      <div className="h-8 w-1/3 bg-slate-800 rounded mb-8"></div>
+    <div className="bg-white dark:bg-[#0f1117]/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 animate-pulse">
+      <div className="h-6 w-3/4 bg-slate-200 dark:bg-slate-800 rounded mb-4"></div>
+      <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded mb-2"></div>
+      <div className="h-4 w-2/3 bg-slate-200 dark:bg-slate-800 rounded mb-6"></div>
+      <div className="h-8 w-1/3 bg-slate-200 dark:bg-slate-800 rounded mb-8"></div>
       <div className="space-y-3 mb-8">
-        <div className="h-4 w-full bg-slate-800 rounded"></div>
-        <div className="h-4 w-full bg-slate-800 rounded"></div>
-        <div className="h-4 w-full bg-slate-800 rounded"></div>
+        <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded"></div>
+        <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded"></div>
+        <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded"></div>
       </div>
-      <div className="h-12 w-full bg-slate-800 rounded-xl"></div>
+      <div className="h-12 w-full bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
     </div>
   );
 }

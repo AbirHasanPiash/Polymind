@@ -73,6 +73,203 @@ const PLACEHOLDERS = [
   "Your AI workspace for productivity and creativity...",
 ];
 
+// Extracted CodeBlock Component
+const CodeBlock = (props: CodeProps) => {
+  const { node, className, children, inline = false, ...rest } = props;
+  const match = /language-(\w+)/.exec(className || "");
+  const language = match ? match[1] : "";
+  const codeString = String(children).replace(/\n$/, "");
+  const lineCount = codeString.split("\n").length;
+  const shouldTruncate = lineCount > 20;
+
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(codeString);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed copy", err);
+    }
+  };
+
+  if (inline || !match) {
+    return (
+      <code
+        className="bg-slate-200 dark:bg-gray-800/60 text-blue-700 dark:text-blue-300 rounded-md px-1.5 sm:px-2 py-0.5 text-[0.85em] sm:text-[0.9em] font-mono border border-slate-300 dark:border-gray-700/40"
+        {...rest}
+      >
+        {children}
+      </code>
+    );
+  }
+
+  return (
+    <div className="my-4 sm:my-6 rounded-xl overflow-hidden bg-[#1e1e1e] border border-gray-700/40 shadow-2xl">
+      <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-3 bg-[#2d2d2d]/80 border-b border-gray-700/40 backdrop-blur-sm">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden sm:flex gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500/90 shadow-sm" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500/90 shadow-sm" />
+            <div className="w-3 h-3 rounded-full bg-green-500/90 shadow-sm" />
+          </div>
+          <span className="text-[10px] sm:text-xs text-gray-400 font-mono font-semibold uppercase tracking-wide">
+            {language || "plaintext"}
+          </span>
+          <span className="text-[10px] sm:text-xs text-gray-500 font-mono">
+            {lineCount} {lineCount === 1 ? "line" : "lines"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 sm:gap-2">
+          {shouldTruncate && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-[10px] sm:text-xs text-gray-400 hover:text-blue-400 flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 rounded hover:bg-gray-700/30 transition-all"
+            >
+              <span className="hidden sm:inline">
+                {isExpanded ? "Collapse" : "Expand"}
+              </span>
+              <ChevronDownIcon
+                className={`w-3 sm:w-3.5 h-3 sm:h-3.5 transition-transform ${
+                  isExpanded ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          )}
+          <button
+            onClick={handleCopy}
+            className="text-gray-400 hover:text-emerald-400 p-1 sm:p-1.5 rounded hover:bg-gray-700/30 transition-all"
+            title="Copy code"
+          >
+            {isCopied ? (
+              <CheckIcon className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-emerald-400" />
+            ) : (
+              <ClipboardDocumentIcon className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
+            )}
+          </button>
+        </div>
+      </div>
+      <div
+        className={`relative overflow-hidden transition-all duration-300 ${
+          shouldTruncate && !isExpanded
+            ? "max-h-[400px] sm:max-h-[500px]"
+            : "max-h-none"
+        }`}
+      >
+        <SyntaxHighlighter
+          style={vscDarkPlus as any}
+          language={language}
+          PreTag="div"
+          customStyle={{
+            margin: 0,
+            padding: "1rem",
+            background: "#1e1e1e",
+            fontSize: "0.8rem",
+            lineHeight: "1.6",
+          }}
+          showLineNumbers={lineCount > 5}
+          wrapLines={true}
+          {...rest}
+        >
+          {codeString}
+        </SyntaxHighlighter>
+        {shouldTruncate && !isExpanded && (
+          <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-24 bg-gradient-to-t from-[#1e1e1e] via-[#1e1e1e]/80 to-transparent pointer-events-none" />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Static Markdown Components
+const sharedComponents: Partial<Components> = {
+  p: ({ children }) => (
+    <p className="mb-4 last:mb-0 leading-[1.75] text-slate-700 dark:text-gray-100 text-sm sm:text-[15px]">
+      {children}
+    </p>
+  ),
+  ul: ({ children }) => (
+    <ul className="list-disc list-outside ml-5 sm:ml-6 mb-4 space-y-2 text-slate-700 dark:text-gray-100 text-sm sm:text-[15px]">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal list-outside ml-5 sm:ml-6 mb-4 space-y-2 text-slate-700 dark:text-gray-100 text-sm sm:text-[15px]">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => <li className="leading-[1.75] pl-1">{children}</li>,
+  h1: ({ children }) => (
+    <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-5 mt-6 sm:mt-7 text-slate-900 dark:text-white border-b border-slate-200 dark:border-gray-700/50 pb-2 sm:pb-3">
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 mt-5 sm:mt-6 text-slate-900 dark:text-white">
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 mt-4 sm:mt-5 text-slate-800 dark:text-gray-100">
+      {children}
+    </h3>
+  ),
+  h4: ({ children }) => (
+    <h4 className="text-base sm:text-lg font-semibold mb-2 mt-3 sm:mt-4 text-slate-700 dark:text-gray-200">
+      {children}
+    </h4>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-4 border-blue-500/80 bg-blue-50 dark:bg-blue-500/5 pl-4 sm:pl-5 pr-3 sm:pr-4 py-2 sm:py-3 italic my-4 sm:my-5 text-slate-600 dark:text-gray-200 rounded-r-lg text-sm sm:text-base">
+      {children}
+    </blockquote>
+  ),
+  table: ({ children }) => (
+    <div className="overflow-x-auto my-4 sm:my-6 rounded-lg border border-slate-200 dark:border-gray-700/50">
+      <table className="min-w-full divide-y divide-slate-200 dark:divide-gray-700/50">
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead className="bg-slate-100 dark:bg-gray-800/50">{children}</thead>
+  ),
+  tbody: ({ children }) => (
+    <tbody className="divide-y divide-slate-200 dark:divide-gray-700/30 bg-white/50 dark:bg-gray-900/20">
+      {children}
+    </tbody>
+  ),
+  th: ({ children }) => (
+    <th className="px-3 sm:px-5 py-2 sm:py-3.5 text-left text-xs sm:text-sm font-semibold text-slate-800 dark:text-gray-200 uppercase tracking-wider">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="px-3 sm:px-5 py-2 sm:py-3.5 text-xs sm:text-sm text-slate-700 dark:text-gray-300 leading-relaxed">
+      {children}
+    </td>
+  ),
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 underline underline-offset-2 transition-colors"
+    >
+      {children}
+    </a>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-slate-900 dark:text-white">{children}</strong>
+  ),
+  em: ({ children }) => <em className="italic text-slate-700 dark:text-gray-200">{children}</em>,
+  hr: () => <hr className="my-4 sm:my-6 border-slate-200 dark:border-gray-700/50" />,
+  code: CodeBlock, // Reference the new component here
+};
+
+// Main ChatPage Component
 export default function ChatPage() {
   const { token, refreshProfile } = useAuth();
   const { chatId: routeChatId } = useParams();
@@ -90,10 +287,9 @@ export default function ChatPage() {
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingMessage, setThinkingMessage] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
+  
+  // Keep this only for copying entire messages, not code blocks
   const [copiedStates, setCopiedStates] = useState<CopiedState>({});
-  const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<{
-    [key: string]: boolean;
-  }>({});
 
   const activeChatId = routeChatId || null;
 
@@ -356,19 +552,35 @@ export default function ChatPage() {
   }, [token, model, activeChatId]);
 
   // Scroll Logic
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (!chatContainerRef.current) return;
+
+    chatContainerRef.current.scrollTo({
+      top: chatContainerRef.current.scrollHeight,
+      behavior: smooth ? "smooth" : "auto",
+    });
+
     setShowScrollButton(false);
   }, []);
 
   useEffect(() => {
-    if (isAutoScrollEnabled.current) scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (!isAutoScrollEnabled.current) return;
+    const timeoutId = setTimeout(() => {
+      if (isStreaming) {
+        scrollToBottom(false);
+      } else {
+        scrollToBottom(true);
+      }
+    }, 10);
+
+    return () => clearTimeout(timeoutId);
+  }, [messages, isStreaming, scrollToBottom]);
 
   const handleScroll = () => {
     if (!chatContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 250; 
+    
     isAutoScrollEnabled.current = isAtBottom;
     setShowScrollButton(!isAtBottom);
   };
@@ -388,14 +600,6 @@ export default function ChatPage() {
       size: f.size,
       type: f.type,
     }));
-
-    console.log(
-      "Sending message:",
-      input,
-      selectedFiles.length > 0
-        ? `[Attachments: ${selectedFiles.map((f) => f.name).join(", ")}]`
-        : ""
-    );
 
     setMessages((prev) => [
       ...prev,
@@ -497,7 +701,8 @@ export default function ChatPage() {
     }
   };
 
-  const handleCopy = async (text: string, id: string) => {
+  // Handle copying entire messages
+  const handleCopyMessage = async (text: string, id: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedStates((prev) => ({ ...prev, [id]: true }));
@@ -510,10 +715,6 @@ export default function ChatPage() {
     }
   };
 
-  const toggleCodeBlock = (id: string) => {
-    setExpandedCodeBlocks((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   // File Icon & Color Helper
   const getFileInfo = (type: string, name: string) => {
     const lowerName = name.toLowerCase();
@@ -524,9 +725,9 @@ export default function ChatPage() {
     ) {
       return {
         icon: "🖼️",
-        color: "from-pink-500/20 to-rose-500/20",
-        border: "border-pink-400/40",
-        text: "text-pink-200",
+        color: "from-pink-500/10 dark:from-pink-500/20 to-rose-500/10 dark:to-rose-500/20",
+        border: "border-pink-200 dark:border-pink-400/40",
+        text: "text-pink-700 dark:text-pink-200",
       };
     }
     if (
@@ -535,9 +736,9 @@ export default function ChatPage() {
     ) {
       return {
         icon: "🎥",
-        color: "from-purple-500/20 to-violet-500/20",
-        border: "border-purple-400/40",
-        text: "text-purple-200",
+        color: "from-purple-500/10 dark:from-purple-500/20 to-violet-500/10 dark:to-violet-500/20",
+        border: "border-purple-200 dark:border-purple-400/40",
+        text: "text-purple-700 dark:text-purple-200",
       };
     }
     if (
@@ -546,17 +747,17 @@ export default function ChatPage() {
     ) {
       return {
         icon: "🎵",
-        color: "from-cyan-500/20 to-blue-500/20",
-        border: "border-cyan-400/40",
-        text: "text-cyan-200",
+        color: "from-cyan-500/10 dark:from-cyan-500/20 to-blue-500/10 dark:to-blue-500/20",
+        border: "border-cyan-200 dark:border-cyan-400/40",
+        text: "text-cyan-700 dark:text-cyan-200",
       };
     }
     if (type === "application/pdf" || lowerName.endsWith(".pdf")) {
       return {
         icon: "📄",
-        color: "from-red-500/20 to-orange-500/20",
-        border: "border-red-400/40",
-        text: "text-red-200",
+        color: "from-red-500/10 dark:from-red-500/20 to-orange-500/10 dark:to-orange-500/20",
+        border: "border-red-200 dark:border-red-400/40",
+        text: "text-red-700 dark:text-red-200",
       };
     }
     if (
@@ -565,25 +766,25 @@ export default function ChatPage() {
     ) {
       return {
         icon: "📝",
-        color: "from-blue-500/20 to-indigo-500/20",
-        border: "border-blue-400/40",
-        text: "text-blue-200",
+        color: "from-blue-500/10 dark:from-blue-500/20 to-indigo-500/10 dark:to-indigo-500/20",
+        border: "border-blue-200 dark:border-blue-400/40",
+        text: "text-blue-700 dark:text-blue-200",
       };
     }
     if (type.includes("spreadsheet") || lowerName.match(/\.(xls|xlsx|csv)$/i)) {
       return {
         icon: "📊",
-        color: "from-green-500/20 to-emerald-500/20",
-        border: "border-green-400/40",
-        text: "text-green-200",
+        color: "from-green-500/10 dark:from-green-500/20 to-emerald-500/10 dark:to-emerald-500/20",
+        border: "border-green-200 dark:border-green-400/40",
+        text: "text-green-700 dark:text-green-200",
       };
     }
     if (type.includes("presentation") || lowerName.match(/\.(ppt|pptx)$/i)) {
       return {
         icon: "📊",
-        color: "from-orange-500/20 to-amber-500/20",
-        border: "border-orange-400/40",
-        text: "text-orange-200",
+        color: "from-orange-500/10 dark:from-orange-500/20 to-amber-500/10 dark:to-amber-500/20",
+        border: "border-orange-200 dark:border-orange-400/40",
+        text: "text-orange-700 dark:text-orange-200",
       };
     }
     if (
@@ -593,9 +794,9 @@ export default function ChatPage() {
     ) {
       return {
         icon: "📦",
-        color: "from-yellow-500/20 to-amber-500/20",
-        border: "border-yellow-400/40",
-        text: "text-yellow-200",
+        color: "from-yellow-500/10 dark:from-yellow-500/20 to-amber-500/10 dark:to-amber-500/20",
+        border: "border-yellow-200 dark:border-yellow-400/40",
+        text: "text-yellow-700 dark:text-yellow-200",
       };
     }
     if (
@@ -603,17 +804,17 @@ export default function ChatPage() {
     ) {
       return {
         icon: "💻",
-        color: "from-slate-500/20 to-gray-500/20",
-        border: "border-slate-400/40",
-        text: "text-slate-200",
+        color: "from-slate-500/10 dark:from-slate-500/20 to-gray-500/10 dark:to-gray-500/20",
+        border: "border-slate-200 dark:border-slate-400/40",
+        text: "text-slate-700 dark:text-slate-200",
       };
     }
 
     return {
       icon: "📎",
-      color: "from-gray-500/20 to-slate-500/20",
-      border: "border-gray-400/40",
-      text: "text-gray-200",
+      color: "from-gray-500/10 dark:from-gray-500/20 to-slate-500/10 dark:to-slate-500/20",
+      border: "border-gray-200 dark:border-gray-400/40",
+      text: "text-gray-700 dark:text-gray-200",
     };
   };
 
@@ -623,186 +824,8 @@ export default function ChatPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  // Enhanced Markdown Components
-  const sharedComponents: Partial<Components> = {
-    p: ({ children }) => (
-      <p className="mb-4 last:mb-0 leading-[1.75] text-gray-100 text-sm sm:text-[15px]">
-        {children}
-      </p>
-    ),
-    ul: ({ children }) => (
-      <ul className="list-disc list-outside ml-5 sm:ml-6 mb-4 space-y-2 text-gray-100 text-sm sm:text-[15px]">
-        {children}
-      </ul>
-    ),
-    ol: ({ children }) => (
-      <ol className="list-decimal list-outside ml-5 sm:ml-6 mb-4 space-y-2 text-gray-100 text-sm sm:text-[15px]">
-        {children}
-      </ol>
-    ),
-    li: ({ children }) => <li className="leading-[1.75] pl-1">{children}</li>,
-    h1: ({ children }) => (
-      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-5 mt-6 sm:mt-7 text-white border-b border-gray-700/50 pb-2 sm:pb-3">
-        {children}
-      </h1>
-    ),
-    h2: ({ children }) => (
-      <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 mt-5 sm:mt-6 text-white">
-        {children}
-      </h2>
-    ),
-    h3: ({ children }) => (
-      <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 mt-4 sm:mt-5 text-gray-100">
-        {children}
-      </h3>
-    ),
-    h4: ({ children }) => (
-      <h4 className="text-base sm:text-lg font-semibold mb-2 mt-3 sm:mt-4 text-gray-200">
-        {children}
-      </h4>
-    ),
-    blockquote: ({ children }) => (
-      <blockquote className="border-l-4 border-blue-500/80 bg-blue-500/5 pl-4 sm:pl-5 pr-3 sm:pr-4 py-2 sm:py-3 italic my-4 sm:my-5 text-gray-200 rounded-r-lg text-sm sm:text-base">
-        {children}
-      </blockquote>
-    ),
-    table: ({ children }) => (
-      <div className="overflow-x-auto my-4 sm:my-6 rounded-lg border border-gray-700/50">
-        <table className="min-w-full divide-y divide-gray-700/50">
-          {children}
-        </table>
-      </div>
-    ),
-    thead: ({ children }) => (
-      <thead className="bg-gray-800/50">{children}</thead>
-    ),
-    tbody: ({ children }) => (
-      <tbody className="divide-y divide-gray-700/30 bg-gray-900/20">
-        {children}
-      </tbody>
-    ),
-    th: ({ children }) => (
-      <th className="px-3 sm:px-5 py-2 sm:py-3.5 text-left text-xs sm:text-sm font-semibold text-gray-200 uppercase tracking-wider">
-        {children}
-      </th>
-    ),
-    td: ({ children }) => (
-      <td className="px-3 sm:px-5 py-2 sm:py-3.5 text-xs sm:text-sm text-gray-300 leading-relaxed">
-        {children}
-      </td>
-    ),
-    a: ({ href, children }) => (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
-      >
-        {children}
-      </a>
-    ),
-    strong: ({ children }) => (
-      <strong className="font-semibold text-white">{children}</strong>
-    ),
-    em: ({ children }) => <em className="italic text-gray-200">{children}</em>,
-    hr: () => <hr className="my-4 sm:my-6 border-gray-700/50" />,
-    code: (props: CodeProps) => {
-      const { node, className, children, inline = false, ...rest } = props;
-      const match = /language-(\w+)/.exec(className || "");
-      const language = match ? match[1] : "";
-      const codeString = String(children).replace(/\n$/, "");
-      const codeId = `code-${node?.position?.start.offset || Math.random()}`;
-      const isExpanded = expandedCodeBlocks[codeId];
-      const lineCount = codeString.split("\n").length;
-      const shouldTruncate = lineCount > 20;
-
-      return !inline && match ? (
-        <div className="my-4 sm:my-6 rounded-xl overflow-hidden bg-[#1e1e1e] border border-gray-700/40 shadow-2xl">
-          <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-3 bg-[#2d2d2d]/80 border-b border-gray-700/40 backdrop-blur-sm">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="hidden sm:flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500/90 shadow-sm" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/90 shadow-sm" />
-                <div className="w-3 h-3 rounded-full bg-green-500/90 shadow-sm" />
-              </div>
-              <span className="text-[10px] sm:text-xs text-gray-400 font-mono font-semibold uppercase tracking-wide">
-                {language || "plaintext"}
-              </span>
-              <span className="text-[10px] sm:text-xs text-gray-500 font-mono">
-                {lineCount} {lineCount === 1 ? "line" : "lines"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 sm:gap-2">
-              {shouldTruncate && (
-                <button
-                  onClick={() => toggleCodeBlock(codeId)}
-                  className="text-[10px] sm:text-xs text-gray-400 hover:text-blue-400 flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 rounded hover:bg-gray-700/30 transition-all"
-                >
-                  <span className="hidden sm:inline">
-                    {isExpanded ? "Collapse" : "Expand"}
-                  </span>
-                  <ChevronDownIcon
-                    className={`w-3 sm:w-3.5 h-3 sm:h-3.5 transition-transform ${
-                      isExpanded ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-              )}
-              <button
-                onClick={() => handleCopy(codeString, codeId)}
-                className="text-gray-400 hover:text-emerald-400 p-1 sm:p-1.5 rounded hover:bg-gray-700/30 transition-all"
-                title="Copy code"
-              >
-                {copiedStates[codeId] ? (
-                  <CheckIcon className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-emerald-400" />
-                ) : (
-                  <ClipboardDocumentIcon className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
-                )}
-              </button>
-            </div>
-          </div>
-          <div
-            className={`relative overflow-hidden transition-all duration-300 ${
-              shouldTruncate && !isExpanded
-                ? "max-h-[400px] sm:max-h-[500px]"
-                : "max-h-none"
-            }`}
-          >
-            <SyntaxHighlighter
-              style={vscDarkPlus}
-              language={language}
-              PreTag="div"
-              customStyle={{
-                margin: 0,
-                padding: "1rem",
-                background: "#1e1e1e",
-                fontSize: "0.8rem",
-                lineHeight: "1.6",
-              }}
-              showLineNumbers={lineCount > 5}
-              wrapLines={true}
-              {...rest}
-            >
-              {codeString}
-            </SyntaxHighlighter>
-            {shouldTruncate && !isExpanded && (
-              <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-24 bg-gradient-to-t from-[#1e1e1e] via-[#1e1e1e]/80 to-transparent pointer-events-none" />
-            )}
-          </div>
-        </div>
-      ) : (
-        <code
-          className="bg-gray-800/60 text-blue-300 rounded-md px-1.5 sm:px-2 py-0.5 text-[0.85em] sm:text-[0.9em] font-mono border border-gray-700/40"
-          {...rest}
-        >
-          {children}
-        </code>
-      );
-    },
-  };
-
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-[#0a0b0f] via-[#0d0e14] to-[#0a0b0f] relative">
+    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] relative transition-colors duration-300">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 px-3 sm:px-3 md:px-5 py-2.5 sm:py-3.5 flex items-center justify-end bg-transparent border-none shadow-none pointer-events-none">
         <div className="pointer-events-auto">
@@ -814,7 +837,7 @@ export default function ChatPage() {
       <div
         ref={chatContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto pt-16 sm:pt-20 pb-4 px-3 sm:px-4 md:px-6 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+        className="flex-1 overflow-y-auto pt-16 sm:pt-20 pb-4 px-3 sm:px-4 md:px-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
       >
         <div
           className={`mx-auto space-y-4 sm:space-y-5 transition-all duration-300 max-w-5xl`}
@@ -839,10 +862,10 @@ export default function ChatPage() {
                   </svg>
                 </div>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2 sm:mb-3">
+              <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-pink-600 dark:from-blue-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent mb-2 sm:mb-3">
                 Ready to Assist
               </h2>
-              <p className="text-gray-400 text-base sm:text-lg max-w-md px-4">
+              <p className="text-slate-500 dark:text-gray-400 text-base sm:text-lg max-w-md px-4">
                 Ask questions, write code, analyze data, or explore ideas
                 together
               </p>
@@ -867,13 +890,13 @@ export default function ChatPage() {
                   msg.role === "user"
                     ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-500/20 px-4 sm:px-5 py-3 sm:py-4 rounded-br-sm"
                     : msg.role === "system"
-                    ? "bg-amber-500/5 border border-amber-500/20 text-amber-300/90 text-xs sm:text-sm font-mono py-2 sm:py-3 px-4 sm:px-5 text-center rounded-xl mx-auto"
-                    : "bg-[#13151c] border border-gray-700/30 text-gray-100 shadow-2xl px-4 sm:px-6 py-4 sm:py-5 rounded-bl-sm"
+                    ? "bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300/90 text-xs sm:text-sm font-mono py-2 sm:py-3 px-4 sm:px-5 text-center rounded-xl mx-auto"
+                    : "bg-white dark:bg-[#13151c] border border-slate-200 dark:border-gray-700/30 text-slate-800 dark:text-gray-100 shadow-sm dark:shadow-2xl px-4 sm:px-6 py-4 sm:py-5 rounded-bl-sm"
                 }`}
               >
                 {msg.role === "ai" ? (
                   <div className="flex flex-col gap-3">
-                    <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-400">
+                    <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-600 dark:prose-a:text-blue-400">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
@@ -885,10 +908,10 @@ export default function ChatPage() {
 
                     {/* Model Badge */}
                     {msg.model && (
-                      <div className="flex items-center gap-2 mt-1 pt-3 border-t border-gray-700/40">
+                      <div className="flex items-center gap-2 mt-1 pt-3 border-t border-slate-100 dark:border-gray-700/40">
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                          <CpuChipIcon className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-purple-400" />
-                          <span className="text-[10px] sm:text-[11px] font-semibold text-purple-300 uppercase tracking-wide">
+                          <CpuChipIcon className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-purple-600 dark:text-purple-400" />
+                          <span className="text-[10px] sm:text-[11px] font-semibold text-purple-600 dark:text-purple-300 uppercase tracking-wide">
                             {msg.model}
                           </span>
                         </div>
@@ -910,7 +933,7 @@ export default function ChatPage() {
                     {/* Enhanced Attachment Pills */}
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="space-y-2 pt-2">
-                        <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-blue-200/70 font-medium">
+                        <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-blue-300 dark:text-blue-200/70 font-medium">
                           <svg
                             className="w-3 h-3"
                             fill="currentColor"
@@ -938,7 +961,7 @@ export default function ChatPage() {
                                 key={idx}
                                 className={`group/file relative flex items-center gap-2 bg-gradient-to-br ${fileInfo.color} backdrop-blur-sm border ${fileInfo.border} rounded-lg px-3 py-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg`}
                               >
-                                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-white/10 backdrop-blur-sm">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-white/40 dark:bg-white/10 backdrop-blur-sm">
                                   <span className="text-lg">
                                     {fileInfo.icon}
                                   </span>
@@ -949,7 +972,7 @@ export default function ChatPage() {
                                   >
                                     {file.name}
                                   </span>
-                                  <span className="text-[10px] text-blue-300/60 font-medium">
+                                  <span className="text-[10px] text-slate-500 dark:text-blue-300/60 font-medium">
                                     {formatSize(file.size)}
                                   </span>
                                 </div>
@@ -965,14 +988,14 @@ export default function ChatPage() {
                 {/* Copy Button for AI Messages */}
                 {msg.role === "ai" && (
                   <button
-                    onClick={() => handleCopy(msg.content, `msg-${msg.id}`)}
-                    className="absolute -bottom-2 -right-2 p-2 sm:p-2.5 bg-[#2d3139] hover:bg-[#363c47] border border-gray-700/50 rounded-xl shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-105"
+                    onClick={() => handleCopyMessage(msg.content, `msg-${msg.id}`)}
+                    className="absolute -bottom-2 -right-2 p-2 sm:p-2.5 bg-white dark:bg-[#2d3139] hover:bg-slate-100 dark:hover:bg-[#363c47] border border-slate-200 dark:border-gray-700/50 rounded-xl shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-105"
                     title="Copy message"
                   >
                     {copiedStates[`msg-${msg.id}`] ? (
-                      <CheckIcon className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-emerald-400" />
+                      <CheckIcon className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-emerald-500 dark:text-emerald-400" />
                     ) : (
-                      <DocumentDuplicateIcon className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400" />
+                      <DocumentDuplicateIcon className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-slate-400 dark:text-gray-400" />
                     )}
                   </button>
                 )}
@@ -980,7 +1003,7 @@ export default function ChatPage() {
                 {/* Copy Button for User Messages */}
                 {msg.role === "user" && (
                   <button
-                    onClick={() => handleCopy(msg.content, `msg-${msg.id}`)}
+                    onClick={() => handleCopyMessage(msg.content, `msg-${msg.id}`)}
                     className="absolute -bottom-2 -left-2 p-2 sm:p-2.5 bg-blue-800/80 hover:bg-blue-700/80 border border-blue-600/30 rounded-xl shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-105"
                     title="Copy message"
                   >
@@ -1003,14 +1026,14 @@ export default function ChatPage() {
                 <div className="relative w-8 h-8 sm:w-10 sm:h-10">
                   <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-pink-500 opacity-20 animate-pulse" />
                   <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
-                  <div className="absolute inset-2 rounded-full bg-[#0d0e14] flex items-center justify-center">
+                  <div className="absolute inset-2 rounded-full bg-white dark:bg-[#0d0e14] flex items-center justify-center">
                     <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500 animate-pulse" />
                   </div>
                 </div>
               </div>
               <div className="flex-1 mt-0.5 sm:mt-1">
                 <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-xl border border-blue-500/20">
-                  <span className="text-xs sm:text-sm text-blue-300 font-medium animate-pulse">
+                  <span className="text-xs sm:text-sm text-blue-600 dark:text-blue-300 font-medium animate-pulse">
                     {thinkingMessage}
                   </span>
                   <span className="flex gap-1">
@@ -1038,8 +1061,8 @@ export default function ChatPage() {
       {/* Scroll to Bottom Button */}
       {showScrollButton && (
         <button
-          onClick={scrollToBottom}
-          className="fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600 text-white rounded-full p-2.5 sm:p-3.5 shadow-2xl z-30 hover:scale-110 transition-transform"
+          onClick={() => scrollToBottom(true)}
+          className="fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 border border-slate-200 dark:border-gray-600 text-slate-700 dark:text-white rounded-full p-2.5 sm:p-3.5 shadow-2xl z-30 hover:scale-110 transition-transform"
           aria-label="Scroll to bottom"
         >
           <ChevronDownIcon className="w-4 sm:w-5 h-4 sm:h-5" />

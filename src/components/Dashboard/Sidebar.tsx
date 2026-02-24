@@ -66,7 +66,7 @@ export default function Sidebar({ isOpen, toggle, isMobile }: SidebarProps) {
     ? `fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out ${
         isOpen ? "translate-x-0" : "-translate-x-full"
       }`
-    : `sticky top-0 h-screen transition-all duration-300 ease-in-out border-r border-gray-800 ${
+    : `sticky top-0 h-screen transition-all duration-300 ease-in-out border-r border-blue-200 dark:border-gray-800 ${
         isOpen ? "w-64" : "w-20"
       }`;
 
@@ -81,23 +81,23 @@ export default function Sidebar({ isOpen, toggle, isMobile }: SidebarProps) {
       )}
 
       <aside
-        className={`${sidebarClasses} bg-[#090a0e] flex flex-col overflow-hidden`}
+        className={`${sidebarClasses} bg-blue-50 dark:bg-[#0a0b0f] flex flex-col overflow-hidden transition-colors duration-300`}
       >
         {/* Sidebar Header */}
         <div
-          className={`h-16 flex items-center border-b border-gray-800 ${
+          className={`h-16 flex items-center border-b border-blue-200 dark:border-gray-800 transition-colors duration-300 ${
             isOpen ? "justify-between px-4" : "justify-center"
           }`}
         >
           {(isOpen || isMobile) && (
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-pink-500 bg-clip-text text-transparent truncate">
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-pink-600 dark:from-blue-400 dark:to-pink-500 bg-clip-text text-transparent truncate">
               M
             </span>
           )}
 
           <button
             onClick={toggle}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
+            className="p-1.5 text-slate-500 dark:text-gray-400 hover:text-blue-900 dark:hover:text-white hover:bg-blue-100 dark:hover:bg-gray-800/50 rounded-lg transition-colors"
           >
             {isMobile ? (
               <XMarkIcon className="w-6 h-6" />
@@ -114,7 +114,7 @@ export default function Sidebar({ isOpen, toggle, isMobile }: SidebarProps) {
           {navItems.map((item) => {
             const isActive =
               pathname === item.path ||
-              (item.name === "New Chat" && pathname === "/dashboard");
+              (item.name === "New AI Chat" && pathname === "/dashboard");
 
             return (
               <Link
@@ -122,18 +122,18 @@ export default function Sidebar({ isOpen, toggle, isMobile }: SidebarProps) {
                 to={item.path}
                 onClick={() => {
                   if (isMobile) toggle();
-                  if (item.name === "New Chat") triggerReset();
+                  if (item.name === "New AI Chat") triggerReset();
                 }}
                 className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all group ${
                   isActive
-                    ? "bg-gray-800 text-white shadow-md"
-                    : "text-gray-400 hover:text-white hover:bg-gray-800/40"
+                    ? "bg-blue-100 dark:bg-gray-800 text-blue-900 dark:text-white shadow-sm"
+                    : "text-slate-500 dark:text-gray-400 hover:text-blue-900 dark:hover:text-white hover:bg-blue-50 dark:hover:bg-gray-800/40"
                 } ${!isOpen && !isMobile ? "justify-center" : ""}`}
                 title={!isOpen ? item.name : ""}
               >
                 <item.icon
                   className={`w-6 h-6 ${
-                    isActive ? "text-blue-400" : "group-hover:text-blue-400"
+                    isActive ? "text-blue-600 dark:text-blue-400" : "group-hover:text-blue-600 dark:group-hover:text-blue-400"
                   } transition-colors`}
                 />
 
@@ -148,7 +148,7 @@ export default function Sidebar({ isOpen, toggle, isMobile }: SidebarProps) {
         </nav>
 
         {/* Footer / User Profile */}
-        <div className="p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-blue-200 dark:border-gray-800 transition-colors duration-300">
           <div
             className={`flex items-center gap-3 ${
               !isOpen && !isMobile ? "justify-center" : ""
@@ -166,18 +166,18 @@ export default function Sidebar({ isOpen, toggle, isMobile }: SidebarProps) {
 
             {isOpen && (
               <div className="flex-1 min-w-0 overflow-hidden">
-                <p className="text-sm font-medium text-white truncate">
+                <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
                   {user?.email}
                 </p>
                 <div className="flex items-center justify-between">
                   <button
                     onClick={logout}
-                    className="text-xs text-gray-500 hover:text-red-400 transition-colors flex items-center gap-1 mt-0.5"
+                    className="text-xs text-slate-500 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 mt-0.5"
                   >
                     Sign Out
                   </button>
                   {user?.is_superuser && (
-                    <span className="text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">
+                    <span className="text-[10px] text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-400/10 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">
                       Admin
                     </span>
                   )}

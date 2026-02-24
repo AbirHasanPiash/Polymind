@@ -233,7 +233,7 @@ export default function ImagePage() {
     imageFiles?.filter((f) => f.id !== lastGeneratedId) || [];
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-[#0a0b0f] via-[#0d0e14] to-[#0a0b0f] relative overflow-hidden">
+    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] relative overflow-hidden transition-colors duration-300">
       {/* Delete Confirmation Modal */}
       <DeleteModal
         isOpen={deleteModalOpen}
@@ -255,11 +255,11 @@ export default function ImagePage() {
                 <div className="absolute inset-0 bg-pink-500 blur-xl opacity-30 animate-pulse"></div>
                 <PhotoIcon className="w-8 h-8 sm:w-10 sm:h-10 text-pink-500 relative z-10" />
               </div>
-              <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold text-white">
+              <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
                 Image Studio
               </h1>
             </div>
-            <p className="text-gray-400 text-sm sm:text-base ml-0 sm:ml-16">
+            <p className="text-slate-500 dark:text-gray-400 text-sm sm:text-base ml-0 sm:ml-16">
               Create stunning visuals with state-of-the-art generative models
             </p>
           </div>
@@ -269,20 +269,22 @@ export default function ImagePage() {
             <div className="lg:col-span-2 space-y-6">
               {/* Prompt Input Card */}
               <div className="relative z-30">
-                <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800 shadow-xl transition-all">
+                {/* Card Background */}
+                <div className="bg-white dark:bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl transition-all">
                   <div className="p-4 sm:p-6 relative">
                     <div className="flex items-center gap-2 mb-3">
-                      <SparklesIcon className="w-4 h-4 text-pink-400" />
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      <SparklesIcon className="w-4 h-4 text-pink-500 dark:text-pink-400" />
+                      <span className="text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                         Image Prompt
                       </span>
                     </div>
 
+                    {/* Textarea */}
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       placeholder="Describe the image you want to create in detail..."
-                      className="w-full h-32 sm:h-40 bg-slate-950/30 text-gray-100 p-4 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-gray-600 text-base sm:text-lg border border-slate-800/50 transition-all [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+                      className="w-full h-32 sm:h-40 bg-slate-50 dark:bg-slate-950/30 text-slate-900 dark:text-gray-100 p-4 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-slate-400 dark:placeholder-gray-600 text-base sm:text-lg border border-slate-200 dark:border-slate-800/50 transition-all [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
                       maxLength={1000}
                     />
 
@@ -310,7 +312,7 @@ export default function ImagePage() {
                   </div>
 
                   {/* Toolbar */}
-                  <div className="px-4 sm:px-6 py-4 border-t border-slate-800/50 bg-slate-950/20 rounded-b-2xl">
+                  <div className="px-4 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-950/20 rounded-b-2xl">
                     <div className="flex flex-col gap-4">
                       {/* Configurations Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 z-50">
@@ -340,7 +342,7 @@ export default function ImagePage() {
                       {/* Action Row */}
                       <div className="flex items-center justify-between pt-2">
                         <div className="flex items-center gap-3">
-                          <span className="text-xs text-gray-500 font-mono hidden sm:inline-block">
+                          <span className="text-xs text-slate-400 dark:text-gray-500 font-mono hidden sm:inline-block">
                             {prompt.length} / 1000 chars
                           </span>
 
@@ -356,7 +358,7 @@ export default function ImagePage() {
                               />
                               <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-pink-900/20 text-xs text-gray-400 hover:text-pink-300 border border-transparent hover:border-pink-500/30 transition-all"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800/50 hover:bg-pink-100 dark:hover:bg-pink-900/20 text-xs text-slate-500 dark:text-gray-400 hover:text-pink-600 dark:hover:text-pink-300 border border-transparent hover:border-pink-300 dark:hover:border-pink-500/30 transition-all"
                                 title="Attach Reference Image"
                               >
                                 <PaperClipIcon className="w-3.5 h-3.5" />
@@ -373,7 +375,7 @@ export default function ImagePage() {
                           disabled={isGenerating || !prompt.trim()}
                           className={`w-full sm:w-auto relative flex items-center justify-center gap-2 px-8 py-2.5 rounded-xl font-semibold transition-all shadow-lg hover:shadow-pink-500/25 ${
                             isGenerating || !prompt.trim()
-                              ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                              ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                               : "bg-gradient-to-r from-pink-600 to-purple-600 text-white hover:opacity-90 active:scale-95"
                           }`}
                         >
@@ -399,8 +401,8 @@ export default function ImagePage() {
               {lastGeneratedImage && !isGenerating && (
                 <div className="relative z-10 animate-in fade-in slide-in-from-top-2 duration-500">
                   <div className="flex items-center gap-2 mb-3">
-                    <SparklesIcon className="w-4 h-4 text-green-400" />
-                    <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <SparklesIcon className="w-4 h-4 text-emerald-500 dark:text-green-400" />
+                    <span className="text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                       Just Created
                     </span>
                   </div>
@@ -415,16 +417,16 @@ export default function ImagePage() {
 
             {/* Feature/Info Sidebar */}
             <div className="space-y-4 relative z-0">
-              <div className="bg-pink-900/10 backdrop-blur-sm p-5 sm:p-6 rounded-2xl border border-pink-800/20 shadow-lg hover:border-pink-500/30 transition-colors">
+              <div className="bg-white dark:bg-pink-900/10 backdrop-blur-sm p-5 sm:p-6 rounded-2xl border border-pink-100 dark:border-pink-800/20 shadow-sm dark:shadow-lg hover:border-pink-300 dark:hover:border-pink-500/30 transition-colors">
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="p-2.5 bg-pink-500/10 rounded-xl border border-pink-500/20">
-                    <PhotoIcon className="w-5 h-5 text-pink-400" />
+                  <div className="p-2.5 bg-pink-100 dark:bg-pink-500/10 rounded-xl border border-pink-200 dark:border-pink-500/20">
+                    <PhotoIcon className="w-5 h-5 text-pink-500 dark:text-pink-400" />
                   </div>
                   <div>
-                    <h4 className="text-white text-sm font-semibold mb-1">
+                    <h4 className="text-slate-900 dark:text-white text-sm font-semibold mb-1">
                       GPT Image 1.5
                     </h4>
-                    <p className="text-gray-400 text-xs leading-relaxed">
+                    <p className="text-slate-500 dark:text-gray-400 text-xs leading-relaxed">
                       Our most advanced model capable of generating legible text
                       and highly consistent characters.
                     </p>
@@ -432,16 +434,16 @@ export default function ImagePage() {
                 </div>
               </div>
 
-              <div className="bg-blue-900/10 backdrop-blur-sm p-5 sm:p-6 rounded-2xl border border-blue-800/20 shadow-lg hover:border-blue-500/30 transition-colors">
+              <div className="bg-white dark:bg-blue-900/10 backdrop-blur-sm p-5 sm:p-6 rounded-2xl border border-blue-100 dark:border-blue-800/20 shadow-sm dark:shadow-lg hover:border-blue-300 dark:hover:border-blue-500/30 transition-colors">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                    <CloudArrowDownIcon className="w-5 h-5 text-blue-400" />
+                  <div className="p-2.5 bg-blue-100 dark:bg-blue-500/10 rounded-xl border border-blue-200 dark:border-blue-500/20">
+                    <CloudArrowDownIcon className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h4 className="text-white text-sm font-semibold mb-1">
+                    <h4 className="text-slate-900 dark:text-white text-sm font-semibold mb-1">
                       Secure Storage
                     </h4>
-                    <p className="text-gray-400 text-xs leading-relaxed">
+                    <p className="text-slate-500 dark:text-gray-400 text-xs leading-relaxed">
                       Your images are stored securely in the cloud and available
                       for download anytime.
                     </p>
@@ -453,9 +455,9 @@ export default function ImagePage() {
 
           {/* History Section */}
           <div className="relative z-0 mb-6">
-            <div className="flex items-center gap-3 mb-6 border-b border-gray-800/50 pb-4">
-              <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500" />
-              <h2 className="text-xl sm:text-2xl font-bold text-white">
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-200 dark:border-gray-800/50 pb-4">
+              <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400 dark:text-gray-500" />
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
                 Recent Creations
               </h2>
             </div>
@@ -471,9 +473,9 @@ export default function ImagePage() {
 
             {/* Empty State */}
             {!isLoading && imageFiles?.length === 0 && (
-              <div className="text-center py-16 sm:py-24 bg-slate-900/30 backdrop-blur-sm rounded-2xl border border-dashed border-slate-800/50">
-                <PhotoIcon className="w-12 h-12 sm:w-16 sm:h-16 text-slate-700 mx-auto mb-4 opacity-50" />
-                <p className="text-gray-500 text-sm sm:text-base">
+              <div className="text-center py-16 sm:py-24 bg-white/50 dark:bg-slate-900/30 backdrop-blur-sm rounded-2xl border border-dashed border-slate-300 dark:border-slate-800/50">
+                <PhotoIcon className="w-12 h-12 sm:w-16 sm:h-16 text-slate-300 dark:text-slate-700 mx-auto mb-4 opacity-50" />
+                <p className="text-slate-500 dark:text-gray-500 text-sm sm:text-base">
                   No masterpieces yet. Start creating!
                 </p>
               </div>
@@ -481,7 +483,7 @@ export default function ImagePage() {
 
             {/* Image Grid */}
             {!isLoading && historyImages.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 pb-20">
                 {historyImages.map((file) => (
                   <ImageCard
                     key={file.id}
@@ -552,15 +554,16 @@ function ImageCard({
   };
 
   return (
+    // Card Background
     <div
-      className={`group bg-slate-900/50 backdrop-blur-sm border ${
+      className={`group bg-white dark:bg-slate-900/50 backdrop-blur-sm border ${
         isHighlighted
-          ? "border-green-500/50 shadow-green-900/20"
-          : "border-slate-800/50 hover:border-slate-700"
-      } rounded-2xl transition-all shadow-lg overflow-hidden flex flex-col`}
+          ? "border-emerald-200 dark:border-green-500/50 shadow-lg shadow-emerald-500/10 dark:shadow-green-900/20"
+          : "border-slate-200 dark:border-slate-800/50 hover:border-blue-300 dark:hover:border-slate-700"
+      } rounded-2xl transition-all shadow-sm dark:shadow-lg overflow-hidden flex flex-col`}
     >
       {/* Image Area */}
-      <div className="relative aspect-square w-full bg-black/50 overflow-hidden">
+      <div className="relative aspect-square w-full bg-slate-100 dark:bg-black/50 overflow-hidden">
         <img
           src={file.public_url}
           alt={file.prompt}
@@ -591,22 +594,22 @@ function ImageCard({
       {/* Content Area */}
       <div className="p-4 sm:p-5 flex flex-col flex-1">
         <div className="flex justify-between items-start mb-3">
-          <span className="text-[10px] font-medium text-pink-300 bg-pink-500/10 px-2 py-1 rounded border border-pink-500/20 uppercase tracking-wide">
+          <span className="text-[10px] font-medium text-pink-600 dark:text-pink-300 bg-pink-100 dark:bg-pink-500/10 px-2 py-1 rounded border border-pink-200 dark:border-pink-500/20 uppercase tracking-wide">
             {file.model}
           </span>
-          <span className="text-[10px] text-gray-500 font-mono">
+          <span className="text-[10px] text-slate-400 dark:text-gray-500 font-mono">
             {new Date(file.created_at).toLocaleDateString()}
           </span>
         </div>
 
-        <p className="text-gray-300 text-sm line-clamp-3 mb-4 leading-relaxed flex-1">
+        <p className="text-slate-600 dark:text-gray-300 text-sm line-clamp-3 mb-4 leading-relaxed flex-1">
           {file.prompt}
         </p>
 
-        <div className="pt-3 border-t border-slate-800/50 mt-auto">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800/50 mt-auto">
           <button
             onClick={handleDownload}
-            className="w-full flex items-center justify-center gap-2 text-xs font-medium bg-slate-800/50 hover:bg-slate-700 text-gray-300 hover:text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-wait"
+            className="w-full flex items-center justify-center gap-2 text-xs font-medium bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-wait"
             disabled={isDownloading}
           >
             {isDownloading ? (
@@ -624,18 +627,18 @@ function ImageCard({
 
 function SkeletonCard() {
   return (
-    <div className="bg-slate-900/30 backdrop-blur-sm border border-slate-800/50 rounded-2xl animate-pulse overflow-hidden">
-      <div className="aspect-square bg-slate-800/30"></div>
+    <div className="bg-white dark:bg-slate-900/30 backdrop-blur-sm border border-slate-200 dark:border-slate-800/50 rounded-2xl animate-pulse overflow-hidden">
+      <div className="aspect-square bg-slate-200 dark:bg-slate-800/30"></div>
       <div className="p-5 space-y-3">
         <div className="flex justify-between">
-          <div className="w-16 h-4 bg-slate-800/50 rounded"></div>
-          <div className="w-12 h-4 bg-slate-800/50 rounded"></div>
+          <div className="w-16 h-4 bg-slate-200 dark:bg-slate-800/50 rounded"></div>
+          <div className="w-12 h-4 bg-slate-200 dark:bg-slate-800/50 rounded"></div>
         </div>
-        <div className="h-4 bg-slate-800/50 rounded w-full"></div>
-        <div className="h-4 bg-slate-800/50 rounded w-3/4"></div>
-        <div className="h-4 bg-slate-800/50 rounded w-1/2"></div>
+        <div className="h-4 bg-slate-200 dark:bg-slate-800/50 rounded w-full"></div>
+        <div className="h-4 bg-slate-200 dark:bg-slate-800/50 rounded w-3/4"></div>
+        <div className="h-4 bg-slate-200 dark:bg-slate-800/50 rounded w-1/2"></div>
         <div className="pt-3 mt-2">
-          <div className="w-full h-8 bg-slate-800/50 rounded-lg"></div>
+          <div className="w-full h-8 bg-slate-200 dark:bg-slate-800/50 rounded-lg"></div>
         </div>
       </div>
     </div>
@@ -676,13 +679,14 @@ function ConfigSelector({
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative w-full cursor-pointer rounded-xl bg-slate-950/50 py-2.5 pl-3 pr-8 text-left border border-slate-700/50 hover:border-slate-600 focus:outline-none focus:ring-1 focus:ring-pink-500/50 transition-all text-xs sm:text-sm backdrop-blur-sm flex items-center gap-2"
+        // Button Styles
+        className="relative w-full cursor-pointer rounded-xl bg-slate-100 dark:bg-slate-950/50 py-2.5 pl-3 pr-8 text-left border border-slate-200 dark:border-slate-700/50 hover:border-blue-300 dark:hover:border-slate-600 focus:outline-none focus:ring-1 focus:ring-pink-500/50 transition-all text-xs sm:text-sm backdrop-blur-sm flex items-center gap-2"
       >
-        <span className="text-gray-500">{icon}</span>
-        <span className="block truncate text-gray-200 font-medium">
+        <span className="text-slate-400 dark:text-gray-500">{icon}</span>
+        <span className="block truncate text-slate-700 dark:text-gray-200 font-medium">
           {selected.name}
         </span>
-        <span className="absolute right-3 top-3 text-gray-500 pointer-events-none">
+        <span className="absolute right-3 top-3 text-slate-400 dark:text-gray-500 pointer-events-none">
           <ChevronDownIcon
             className={`h-4 w-4 transition-transform duration-200 ${
               isOpen ? "rotate-180" : ""
@@ -692,8 +696,9 @@ function ConfigSelector({
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full mb-2 w-full overflow-hidden rounded-xl bg-[#0f1117] backdrop-blur-xl py-1 text-sm shadow-2xl border border-slate-700 z-[60] animate-in fade-in zoom-in-95 duration-200">
-          <div className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-slate-800/50">
+        // Dropdown Styles
+        <div className="absolute bottom-full mb-2 w-full overflow-hidden rounded-xl bg-white dark:bg-[#0f1117] backdrop-blur-xl py-1 text-sm shadow-2xl border border-slate-200 dark:border-slate-700 z-[60] animate-in fade-in zoom-in-95 duration-200">
+          <div className="px-3 py-2 text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800/50">
             Select {label}
           </div>
           <div className="max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
@@ -706,8 +711,8 @@ function ConfigSelector({
                 }}
                 className={`w-full text-left relative cursor-pointer select-none py-2.5 pl-3 pr-4 transition-colors flex items-center justify-between ${
                   selected.id === option.id
-                    ? "bg-pink-600/20 text-pink-200"
-                    : "text-gray-300 hover:bg-slate-800/70"
+                    ? "bg-pink-50 dark:bg-pink-600/20 text-pink-700 dark:text-pink-200"
+                    : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-slate-800/70"
                 }`}
               >
                 <span
@@ -718,7 +723,7 @@ function ConfigSelector({
                   {option.name}
                 </span>
                 {selected.id === option.id && (
-                  <CheckIcon className="h-4 w-4 text-pink-400" />
+                  <CheckIcon className="h-4 w-4 text-pink-500 dark:text-pink-400" />
                 )}
               </button>
             ))}

@@ -10,12 +10,19 @@ import {
   ArrowTopRightOnSquareIcon,
   ShieldCheckIcon,
   ArrowPathIcon,
+  BuildingLibraryIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import Loading from "../components/Loading";
 
 // Types
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 interface Package {
   id: string;
@@ -33,33 +40,118 @@ interface Transaction {
   credits_added: number;
   status: "pending" | "completed" | "failed";
   created_at: string;
-  stripe_session_id: string;
+  stripe_session_id?: string;
+  razorpay_order_id?: string;
 }
+
+type PaymentGateway = "stripe" | "razorpay";
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
+// Utility to load Razorpay SDK dynamically
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 export default function BillingPage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentGateway>("stripe");
 
   // Data Fetching
   const { data: packages, isLoading: loadingPackages } = useSWR<Package[]>(
     "/packages/",
     fetcher
   );
-  const { data: transactions, isLoading: loadingHistory } = useSWR<
-    Transaction[]
-  >("/payments/history", fetcher);
+  
+
+  const { 
+    data: transactions, 
+    isLoading: loadingHistory, 
+    mutate: mutateTransactions 
+  } = useSWR<Transaction[]>("/payments/history", fetcher);
 
   // Handle Purchase
   const handlePurchase = async (pkg: Package) => {
     setPurchasingId(pkg.id);
+    
     try {
-      const response = await api.post(
-        `/payments/create-checkout-session/${pkg.id}`
-      );
-      if (response.data.checkout_url) {
-        window.location.href = response.data.checkout_url;
+      if (paymentMethod === "stripe") {
+        // STRIPE FLOW
+        const response = await api.post(
+          `/payments/create-checkout-session/${pkg.id}`
+        );
+        if (response.data.checkout_url) {
+          window.location.href = response.data.checkout_url;
+        }
+      } else {
+        // RAZORPAY FLOW
+        const isLoaded = await loadRazorpayScript();
+        if (!isLoaded) {
+          alert("Razorpay SDK failed to load. Are you online?");
+          setPurchasingId(null);
+          return;
+        }
+
+        // Create Razorpay Order on Backend
+        const { data: orderData } = await api.post(
+          `/payments/create-razorpay-order/${pkg.id}`
+        );
+
+        // Initialize Razorpay Checkout
+        const options = {
+          key: orderData.key_id,
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: "MultiAIModel",
+          description: `Purchase ${pkg.name}`,
+          order_id: orderData.order_id,
+          handler: async function (response: any) {
+            try {
+              // Verify Payment on Backend
+              await api.post("/payments/verify-razorpay-payment", {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+              
+              alert("Payment successful! Credits have been added to your wallet.");
+              mutateTransactions();
+
+              await refreshProfile();
+
+            } catch (err) {
+              console.error(err);
+              alert("Payment verification failed. Please contact support.");
+            } finally {
+              setPurchasingId(null);
+            }
+          },
+          prefill: {
+            email: user?.email,
+          },
+          theme: {
+            color: "#2563EB",
+          },
+          modal: {
+            ondismiss: function () {
+              setPurchasingId(null);
+            },
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on("payment.failed", function (response: any) {
+          alert(`Payment failed: ${response.error.description}`);
+          setPurchasingId(null);
+        });
+        rzp.open();
       }
     } catch (error) {
       console.error("Purchase failed", error);
@@ -69,7 +161,6 @@ export default function BillingPage() {
   };
 
   const rawCredits = user?.wallet?.credits ? Number(user.wallet.credits) : 0;
-
   const displayCredits = rawCredits.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -80,9 +171,9 @@ export default function BillingPage() {
   return (
     <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] relative overflow-hidden overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] transition-colors duration-300">
       <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 pb-24">
+        
         {/* Header & Wallet Section */}
         <div className="flex flex-col lg:flex-row gap-8 mb-12 animate-in fade-in slide-in-from-top-4 duration-500">
-          {/* Left: Title & Intro */}
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3 mb-2">
               <CreditCardIcon className="w-8 h-8 text-blue-600 dark:text-blue-500" />
@@ -96,7 +187,7 @@ export default function BillingPage() {
             <div className="flex items-center gap-4 mt-6 text-sm text-slate-500 dark:text-gray-500">
               <div className="flex items-center gap-1.5">
                 <ShieldCheckIcon className="w-4 h-4 text-emerald-500" />
-                <span>Secure Payment via Stripe</span>
+                <span>Secure Payments</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <SparklesIcon className="w-4 h-4 text-purple-500" />
@@ -105,10 +196,8 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* Right: Digital Wallet Card */}
           <div className="w-full lg:w-96">
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-purple-700 dark:from-blue-900/40 dark:to-purple-900/40 border border-white/20 dark:border-white/10 p-6 shadow-2xl backdrop-blur-md group">
-              {/* Background Decor */}
               <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 dark:bg-blue-500/20 rounded-full blur-3xl group-hover:bg-white/20 dark:group-hover:bg-blue-500/30 transition-all duration-700"></div>
               <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 dark:bg-purple-500/20 rounded-full blur-3xl group-hover:bg-white/20 dark:group-hover:bg-purple-500/30 transition-all duration-700"></div>
 
@@ -143,12 +232,40 @@ export default function BillingPage() {
           </div>
         </div>
 
-        {/* Packages Grid */}
+        {/* Packages Grid & Payment Method Toggle */}
         <div className="mb-16">
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-            <SparklesIcon className="w-5 h-5 text-amber-500" />
-            Available Packages
-          </h3>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <SparklesIcon className="w-5 h-5 text-amber-500" />
+              Available Packages
+            </h3>
+
+            {/* Payment Gateway Toggle */}
+            <div className="flex bg-slate-200/50 dark:bg-[#0f1117] p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => setPaymentMethod("stripe")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  paymentMethod === "stripe"
+                    ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <CreditCardIcon className="w-4 h-4" />
+                Stripe
+              </button>
+              <button
+                onClick={() => setPaymentMethod("razorpay")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  paymentMethod === "razorpay"
+                    ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <BuildingLibraryIcon className="w-4 h-4" />
+                Razorpay
+              </button>
+            </div>
+          </div>
 
           {loadingPackages ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -171,6 +288,7 @@ export default function BillingPage() {
                                 }
                             `}
                   >
+                    {/* Package Content */}
                     {pkg.is_featured && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-lg">
                         Most Popular
@@ -215,13 +333,13 @@ export default function BillingPage() {
                         <div className="p-1 rounded-full bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400">
                           <SparklesIcon className="w-3.5 h-3.5" />
                         </div>
-                        {/* Calculate cost per credit for display */}
                         <span>
                           ${(pkg.price / pkg.credits).toFixed(2)} per credit
                         </span>
                       </li>
                     </ul>
 
+                    {/* Button to Reflect Payment Method */}
                     <button
                       onClick={() => handlePurchase(pkg)}
                       disabled={!!purchasingId}
@@ -245,7 +363,7 @@ export default function BillingPage() {
                         </>
                       ) : (
                         <>
-                          Get Started
+                          Pay via {paymentMethod === "stripe" ? "Stripe" : "Razorpay"}
                           <ArrowTopRightOnSquareIcon className="w-4 h-4" />
                         </>
                       )}

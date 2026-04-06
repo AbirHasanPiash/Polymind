@@ -37,7 +37,7 @@ export default function GoogleAuthBtn() {
         onError={() => console.error('Login Failed')}
         theme="filled_blue"
         shape="pill"
-        width="320"
+        width="240"
         text="continue_with"
         logo_alignment="left"
       />

@@ -133,7 +133,7 @@ export default function ChatInput({
   const canSend = (input.trim() || selectedFiles.length > 0) && !isStreaming && !isThinking;
 
   return (
-    <div className="relative px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5 bg-blue-50 dark:bg-gradient-to-b dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] transition-colors duration-300">
+    <div className="relative px-4 md:px-6 py-3 sm:py-4 md:py-5 bg-blue-50 dark:bg-gradient-to-b dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] transition-colors duration-300">
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-blue-500/[0.02] pointer-events-none" />
 
@@ -203,7 +203,7 @@ export default function ChatInput({
               {/* Dynamic Placeholder */}
               {!input && !isStreaming && showEmptyStatePlaceholder && selectedFiles.length === 0 && (
                 <div
-                  className={`absolute left-10 sm:left-11 top-3 sm:top-3.5 text-slate-400 dark:text-gray-500 text-sm sm:text-base pointer-events-none transition-all duration-300 ${
+                  className={`absolute left-10 sm:left-11 right-12 sm:right-14 top-3 sm:top-3.5 text-slate-400 dark:text-gray-500 text-sm sm:text-base pointer-events-none transition-all duration-300 ${
                     fadePlaceholder ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1"
                   }`}
                 >
@@ -212,7 +212,7 @@ export default function ChatInput({
               )}
 
               {isStreaming && !input && (
-                <div className="absolute left-10 sm:left-11 top-3 sm:top-3.5 text-slate-500 dark:text-gray-600 text-sm sm:text-base pointer-events-none flex items-center gap-2">
+                <div className="absolute left-10 sm:left-11 right-12 sm:right-14 top-3 sm:top-3.5 text-slate-500 dark:text-gray-600 text-sm sm:text-base pointer-events-none flex items-center gap-2">
                   <span className="inline-block animate-pulse">⏳</span>
                   <span>Waiting for response...</span>
                 </div>

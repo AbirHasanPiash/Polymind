@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircleIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
@@ -10,26 +10,28 @@ export default function PaymentSuccessPage() {
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
-    // Refresh user wallet balance
-    refreshProfile();
-
-    // Countdown timer for auto-redirect
+    // Credits are granted by Stripe's webhook, which can land a moment after the
+    // browser is redirected here. Re-checking on each tick means the balance
+    // appears as soon as it settles, rather than looking unpaid until a reload.
     const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
+      void refreshProfile();
+      setCountdown((remaining) => {
+        if (remaining <= 1) {
           clearInterval(timer);
-          navigate('/dashboard/billing');
+          navigate('/dashboard/billing', { replace: true });
           return 0;
         }
-        return prev - 1;
+        return remaining - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
+    // refreshProfile is memoised in AuthContext. As an unstable function it
+    // restarted this effect on every render and refetched the profile in a loop.
   }, [navigate, refreshProfile]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-blue-50 dark:bg-[#0a0b0f] transition-colors duration-300 px-4 py-8 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="relative flex h-full items-center justify-center overflow-y-auto app-surface px-4 py-8 sm:px-6 lg:px-8 custom-scrollbar">
       
       {/* Subtle gradient orb - Green tint for success context */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">

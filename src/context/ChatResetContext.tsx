@@ -1,28 +1,19 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
-type ChatResetContextType = {
-  resetKey: number;
-  triggerReset: () => void;
-};
+import { ChatResetContext } from "./chat-reset-context";
 
-const ChatResetContext = createContext<ChatResetContextType | null>(null);
-
+/**
+ * Signals "start a new conversation" from the sidebar to the chat page.
+ *
+ * The value is memoised: an object literal recreated on every render would
+ * re-render every consumer of this context for no reason.
+ */
 export function ChatResetProvider({ children }: { children: ReactNode }) {
   const [resetKey, setResetKey] = useState(0);
 
-  const triggerReset = () => {
-    setResetKey((k) => k + 1);
-  };
+  const triggerReset = useCallback(() => setResetKey((key) => key + 1), []);
 
-  return (
-    <ChatResetContext.Provider value={{ resetKey, triggerReset }}>
-      {children}
-    </ChatResetContext.Provider>
-  );
-}
+  const value = useMemo(() => ({ resetKey, triggerReset }), [resetKey, triggerReset]);
 
-export function useChatReset() {
-  const ctx = useContext(ChatResetContext);
-  if (!ctx) throw new Error('useChatReset must be used inside ChatResetProvider');
-  return ctx;
+  return <ChatResetContext.Provider value={value}>{children}</ChatResetContext.Provider>;
 }

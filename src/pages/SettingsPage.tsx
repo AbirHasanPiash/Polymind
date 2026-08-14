@@ -8,11 +8,13 @@ import {
   ExclamationCircleIcon, 
   ArrowPathIcon 
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../context/AuthContext';
-import api from '../api/client';
+import { useAuth } from '../context/auth-context';
+import { useToast } from '../context/toast-context';
+import api, { getErrorMessage } from '../api/client';
 
 export default function SettingsPage() {
   const { user, refreshProfile } = useAuth();
+  const toast = useToast();
   
   const [fullName, setFullName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -47,9 +49,11 @@ export default function SettingsPage() {
       await refreshProfile();
       
       setMessage({ type: 'success', text: 'Profile updated successfully' });
+      toast.success('Profile updated');
     } catch (error) {
-      console.error("Update failed", error);
-      setMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+      const text = getErrorMessage(error, 'Failed to update profile. Please try again.');
+      setMessage({ type: 'error', text });
+      toast.error(text);
     } finally {
       setIsSaving(false);
     }
@@ -58,7 +62,7 @@ export default function SettingsPage() {
   if (!user) return <div className="p-8 text-center text-slate-500 dark:text-gray-500">Loading profile...</div>;
 
   return (
-    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] text-slate-900 dark:text-gray-100 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] transition-colors duration-300">
+    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] text-slate-900 dark:text-gray-100 overflow-y-auto custom-scrollbar transition-colors duration-300">
       <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-8">
         
         {/* Page Header */}

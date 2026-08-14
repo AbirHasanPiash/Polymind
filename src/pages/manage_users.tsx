@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import useSWR from 'swr';
-import api from '../api/client';
+import api, { fetcher, getErrorMessage } from '../api/client';
 import { 
   MagnifyingGlassIcon, 
   ChevronLeftIcon, 
@@ -13,10 +13,37 @@ import {
   UserGroupIcon
 } from '@heroicons/react/24/outline';
 import EditUserModal from '../components/EditUserModal';
+import { useToast } from '../context/toast-context';
+import { formatCredits, formatDate } from '../lib/format';
 
-const fetcher = (url: string) => api.get(url).then((res) => res.data);
+/** Mirrors UserAdminResponse from the backend. */
+export type AdminUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_active: boolean;
+  is_superuser: boolean;
+  created_at: string | null;
+  wallet: { credits: number | string; updated_at?: string } | null;
+};
+
+type AdminUserPage = {
+  users: AdminUser[];
+  total_count: number;
+  page: number;
+  size: number;
+};
+
+export type AdminUserUpdate = {
+  full_name?: string | null;
+  is_active?: boolean;
+  is_superuser?: boolean;
+  credits?: number;
+};
 
 export default function ManageUsersPage() {
+  const toast = useToast();
+
   // State Management
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -26,7 +53,7 @@ export default function ManageUsersPage() {
 
   // Edit Modal State
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [userToEdit, setUserToEdit] = useState<any>(null);
+  const [userToEdit, setUserToEdit] = useState<AdminUser | null>(null);
 
   // Search Debounce
   useEffect(() => {
@@ -45,8 +72,10 @@ export default function ManageUsersPage() {
     ...(roleFilter !== 'all' && { is_superuser: (roleFilter === 'admin').toString() }),
   });
 
-  const { data, mutate, isLoading, error } = useSWR(
-    `/admin/users?${queryParams.toString()}`, 
+  // keepPreviousData: the table keeps showing the current page while the next
+  // one loads, instead of collapsing to a spinner on every keystroke.
+  const { data, mutate, isLoading, error } = useSWR<AdminUserPage>(
+    `/admin/users?${queryParams.toString()}`,
     fetcher,
     { keepPreviousData: true }
   );
@@ -54,24 +83,27 @@ export default function ManageUsersPage() {
   const totalPages = Math.ceil((data?.total_count || 0) / size);
 
   // Handlers
-  const openEditModal = (user: any) => {
+  const openEditModal = (user: AdminUser) => {
     setUserToEdit(user);
     setEditModalOpen(true);
   };
 
-  const saveUserChanges = async (userId: string, updatePayload: any) => {
+  const saveUserChanges = async (userId: string, updatePayload: AdminUserUpdate) => {
     try {
       await api.patch(`/admin/users/${userId}`, updatePayload);
       await mutate();
+      toast.success('User updated');
     } catch (err) {
-      alert("Failed to update user.");
+      // Surfaces the backend's reason, e.g. "You cannot remove your own admin
+      // privileges", instead of a generic failure notice.
+      toast.error(getErrorMessage(err, 'Failed to update user'));
       throw err;
     }
   };
 
   return (
     <div className="flex flex-col h-full bg-blue-50 dark:bg-[#0a0b0f] text-slate-900 dark:text-gray-100 overflow-hidden font-sans transition-colors duration-300">
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-6">
           
           {/* Header Area */}
@@ -144,7 +176,7 @@ export default function ManageUsersPage() {
                     </td>
                   </tr>
                 ) : (
-                  data?.users.map((u: any) => (
+                  data?.users.map((u) => (
                     <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                       
                       {/* Name/Email */}
@@ -186,14 +218,14 @@ export default function ManageUsersPage() {
                               <CreditCardIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                             </div>
                             <span className="text-sm font-mono font-medium text-slate-700 dark:text-gray-200">
-                               {Number(u.wallet?.credits || 0).toLocaleString()} Credits
+                               {formatCredits(u.wallet?.credits)} Credits
                             </span>
                          </div>
                       </td>
 
                       {/* Date */}
                       <td className="px-6 py-4 text-xs text-slate-500 dark:text-gray-500 font-medium">
-                        {new Date(u.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        {formatDate(u.created_at)}
                       </td>
 
                       {/* Actions */}

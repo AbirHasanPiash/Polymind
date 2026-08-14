@@ -1,15 +1,23 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
-const GOOGLE_CLIENT_ID = "215092121758-6svpfnkvc2vqpi9uf1uchh98phk11tpt.apps.googleusercontent.com";
+import App from "./App.tsx";
+import ErrorBoundary from "./components/ErrorBoundary.tsx";
+import { GOOGLE_CLIENT_ID } from "./lib/env.ts";
+import "./index.css";
 
-createRoot(document.getElementById('root')!).render(
+const container = document.getElementById("root");
+if (!container) throw new Error('Root element "#root" is missing from index.html');
+
+createRoot(container).render(
   <StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <App />
-    </GoogleOAuthProvider>
+    <ErrorBoundary>
+      {/* The client id is public, but it belongs in configuration so staging and
+          production can point at different OAuth clients. */}
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <App />
+      </GoogleOAuthProvider>
+    </ErrorBoundary>
   </StrictMode>,
-)
+);

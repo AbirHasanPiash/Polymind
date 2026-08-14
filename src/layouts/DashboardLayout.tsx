@@ -1,49 +1,92 @@
-import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
-import Sidebar from '../components/Dashboard/Sidebar';
-import Header from '../components/Dashboard/Header';
+import { useCallback, useEffect, useState } from "react";
+import { Outlet } from "react-router-dom";
+
+import Header from "../components/Dashboard/Header";
+import Sidebar from "../components/Dashboard/Sidebar";
+import { useIsMobile } from "../hooks/useMediaQuery";
+
+const SIDEBAR_STATE_KEY = "sidebar-open";
+
+function readStoredSidebarState(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_STATE_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
 
 export default function DashboardLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
-  // Handle Resize Logic
+  // On desktop the collapsed/expanded choice is the user's and is remembered.
+  // On mobile the sidebar is a drawer that always starts closed.
+  const [desktopOpen, setDesktopOpen] = useState(readStoredSidebarState);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const isOpen = isMobile ? drawerOpen : desktopOpen;
+
+  const toggleSidebar = useCallback(() => {
+    if (isMobile) {
+      setDrawerOpen((open) => !open);
+      return;
+    }
+    setDesktopOpen((open) => {
+      const next = !open;
+      try {
+        localStorage.setItem(SIDEBAR_STATE_KEY, String(next));
+      } catch {
+        // Preference simply is not persisted if storage is unavailable.
+      }
+      return next;
+    });
+  }, [isMobile]);
+
+  // Navigating closes the drawer. Handled as an event from the sidebar rather
+  // than as a route effect, so no state is set during a render pass.
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  // Lock body scroll behind the drawer so the page underneath cannot be
+  // scrolled by touch while the overlay is up.
   useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 1024;
-      setIsMobile(mobile);
-      // Automatically close sidebar on mobile, open on desktop init
-      if (mobile) setSidebarOpen(false);
-      else setSidebarOpen(true);
+    if (!isMobile || !drawerOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
     };
+  }, [isMobile, drawerOpen]);
 
-    // Initial check
-    handleResize();
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Escape closes the drawer.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [drawerOpen]);
 
   return (
-    <div className="flex h-screen bg-[#0f1117] text-gray-100 overflow-hidden font-sans">
-      {/* Sidebar (Handles its own responsive widths/transforms) */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        toggle={() => setSidebarOpen(!sidebarOpen)} 
+    // h-dvh, not h-screen: on mobile browsers the dynamic viewport unit accounts
+    // for the collapsing address bar, so the composer is not pushed off-screen.
+    <div className="flex h-dvh overflow-hidden font-sans app-surface text-slate-900 dark:text-gray-100">
+      <Sidebar
+        isOpen={isOpen}
+        toggle={toggleSidebar}
         isMobile={isMobile}
+        onNavigate={closeDrawer}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header - Passing toggle for Mobile Burger Icon */}
-        <Header 
-          toggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
-          isMobile={isMobile}
-        />
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* The wordmark lives in the sidebar while it is open and moves to the
+            header when it collapses, so it is never on screen twice. */}
+        <Header toggleSidebar={toggleSidebar} isMobile={isMobile} showBrand={!isOpen} />
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-0 relative scroll-smooth bg-gradient-to-br from-[#0a0b0f] via-[#0d0e14] to-[#0a0b0f]">
-            <Outlet />
+        {/* The page owns its own scrolling and background; this container only
+            provides the box. It used to force a dark gradient here, which left
+            the whole content area dark even in light mode. */}
+        <main className="relative flex-1 overflow-hidden">
+          <Outlet />
         </main>
       </div>
     </div>

@@ -1,10 +1,40 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Multimodal AI Platform</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#0a0b0f" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#eff6ff" media="(prefers-color-scheme: light)" />
+    <meta
+      name="description"
+      content="MultiAIModel — one workspace for GPT, Claude and Gemini chat, image generation, text to speech and AI avatar video."
+    />
+    <title>MultiAIModel — Multimodal AI Platform</title>
+
+    <!--
+      Theme bootstrap. This runs before the first paint and before React mounts,
+      so the correct palette is on <html> from the very first frame. Applying the
+      theme in a React effect instead makes the page paint light, then repaint
+      dark — the white flash on load.
+    -->
+    <script>
+      (function () {
+        try {
+          /* Keep this key in sync with STORAGE_KEY in src/components/theme-provider.tsx */
+          var stored = localStorage.getItem("vite-ui-theme") || "dark";
+          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var isDark = stored === "dark" || (stored === "system" && prefersDark);
+          var root = document.documentElement;
+          root.classList.toggle("dark", isDark);
+          root.classList.toggle("light", !isDark);
+          /* Makes native controls, scrollbars and form fields match the theme. */
+          root.style.colorScheme = isDark ? "dark" : "light";
+        } catch (e) {
+          /* Private mode or blocked storage: fall back to the class already on <html>. */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useSWR from "swr";
-import api from "../api/client";
+import api, { fetcher, getErrorMessage } from "../api/client";
 import {
   UserCircleIcon,
   VideoCameraIcon,
@@ -19,7 +19,11 @@ import {
   Square2StackIcon,
   TrashIcon,
 } from "@heroicons/react/24/solid";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth-context";
+import { useToast } from "../context/toast-context";
+import { useAwaitNewItem } from "../hooks/useAwaitNewItem";
+import { downloadFile, timestampedName } from "../lib/download";
+import { MAX_FILE_SIZE_BYTES, UPLOAD_LIMITS } from "../lib/env";
 import DeleteModal from "../components/DeleteModal";
 
 // Types
@@ -28,7 +32,10 @@ interface AvatarVideo {
   public_url: string | null;
   thumbnail_url: string | null;
   status: "processing" | "processing_external" | "completed" | "failed";
-  text_prompt: string;
+  /** The narration script. The API field is script_text; the old `text_prompt`
+   *  did not exist on the model, so this always rendered empty. */
+  script_text: string;
+  error_message?: string | null;
   created_at: string;
   avatar_image_url: string;
 }
@@ -92,11 +99,14 @@ const PRESETS: PresetCharacter[] = [
   },
 ];
 
-const fetcher = (url: string) => api.get(url).then((res) => res.data);
+/** D-ID renders take minutes; the row appears immediately with a pending status. */
+const SUBMIT_TIMEOUT_MS = 60_000;
+const ACTIVE_POLL_MS = 5000;
 
 export default function AvatarPage() {
   const { refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   // Avatar Selection
   const [activeTab, setActiveTab] = useState<"preset" | "generate" | "custom">(
@@ -133,7 +143,12 @@ export default function AvatarPage() {
     mutate,
     isLoading,
   } = useSWR<AvatarVideo[]>("/media/videos/list", fetcher, {
-    refreshInterval: 5000,
+    // Poll only while a render is in progress. The previous fixed interval kept
+    // hitting the API every five seconds for as long as the tab stayed open.
+    refreshInterval: (latest) =>
+      isAnimating || latest?.some((video) => video.status.startsWith("processing"))
+        ? ACTIVE_POLL_MS
+        : 0,
   });
   // Fetch Image History for the Library
   const { data: imageLibrary } = useSWR<GeneratedImage[]>(
@@ -145,12 +160,15 @@ export default function AvatarPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 10 * 1024 * 1024) {
-        alert("File size must be less than 10MB");
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`Avatar image must be under ${UPLOAD_LIMITS.maxFileSizeMb} MB`);
         return;
       }
       setCustomFile(file);
-      setCustomPreview(URL.createObjectURL(file));
+      setCustomPreview((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return URL.createObjectURL(file);
+      });
       setCustomAvatarUrl("");
     }
   };
@@ -158,86 +176,104 @@ export default function AvatarPage() {
   const clearFile = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCustomFile(null);
-    setCustomPreview(null);
+    setCustomPreview((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return null;
+    });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // Release the preview blob when leaving the page.
+  useEffect(
+    () => () =>
+      setCustomPreview((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return null;
+      }),
+    [],
+  );
+
+  useAwaitNewItem<AvatarVideo>({
+    items: videos,
+    isWaiting: isAnimating,
+    timeoutMs: SUBMIT_TIMEOUT_MS,
+    onArrived: (video) => {
+      setLastVideoId(video.id);
+      setScript("");
+      setIsAnimating(false);
+      void refreshProfile();
+      toast.success("Rendering started — your video will appear below when it is ready");
+    },
+    onTimeout: () => {
+      setIsAnimating(false);
+      toast.error("Still processing in the background. Check your history shortly.");
+    },
+  });
+
   // Handle Video Animation (D-ID)
-  const handleAnimate = async () => {
-    // Determine the source image
-    let sourceUrl = "";
+  const handleAnimate = useCallback(async () => {
+    if (isAnimating) return;
+
+    if (!script.trim()) {
+      toast.error("Enter a script for your avatar to read");
+      return;
+    }
 
     setIsAnimating(true);
 
     try {
-      // Logic to resolve source URL
+      // Resolve the avatar image for the selected tab.
+      let sourceUrl = "";
       if (activeTab === "preset") {
         sourceUrl = selectedPreset.url;
       } else if (activeTab === "generate") {
-        sourceUrl = generatedFaceUrl || "";
-      } else if (activeTab === "custom") {
-        if (customFile) {
-          const formData = new FormData();
-          formData.append("file", customFile);
-
-          const uploadRes = await api.post("/media/upload", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-          });
-          sourceUrl = uploadRes.data.public_url;
-        } else {
-          sourceUrl = customAvatarUrl;
-        }
+        sourceUrl = generatedFaceUrl ?? "";
+      } else if (customFile) {
+        const formData = new FormData();
+        formData.append("file", customFile);
+        const uploadRes = await api.post<{ public_url: string }>("/media/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        sourceUrl = uploadRes.data.public_url;
+      } else {
+        sourceUrl = customAvatarUrl;
       }
 
-      if (!sourceUrl || !script.trim()) {
+      if (!sourceUrl) {
         setIsAnimating(false);
-        alert("Please select an avatar and enter a script.");
+        toast.error("Choose an avatar image first");
         return;
       }
 
       setLastVideoId(null);
 
-      // Trigger Generation
+      // The backend derives provider and model itself; sending them was noise.
       await api.post("/media/generate-avatar", {
         text: script,
         voice_name: selectedVoice.value,
         avatar_url: sourceUrl,
-        model: "talks", // D-ID
-        provider: "d-id",
       });
 
-      refreshProfile();
-
-      const startTime = Date.now();
-      const currentLatestId = videos && videos.length > 0 ? videos[0].id : null;
-
-      const pollInterval = setInterval(async () => {
-        const updatedList = await mutate();
-        if (!updatedList || updatedList.length === 0) return;
-
-        const newest = updatedList[0];
-        if (newest.id !== currentLatestId) {
-          clearInterval(pollInterval);
-          setLastVideoId(newest.id);
-          setScript("");
-          setIsAnimating(false);
-        }
-
-        if (Date.now() - startTime > 120000) {
-          clearInterval(pollInterval);
-          setIsAnimating(false);
-          alert("Video is processing in background. Check history shortly.");
-        }
-      }, 4000);
+      // Credits are reserved when the job is accepted.
+      void refreshProfile();
+      void mutate();
     } catch (err) {
-      console.error(err);
-      alert(
-        "Failed to start animation. " +
-          (err instanceof Error ? err.message : "")
-      );
       setIsAnimating(false);
+      toast.error(getErrorMessage(err, "Failed to start the avatar render"));
     }
-  };
+  }, [
+    activeTab,
+    customAvatarUrl,
+    customFile,
+    generatedFaceUrl,
+    isAnimating,
+    mutate,
+    refreshProfile,
+    script,
+    selectedPreset.url,
+    selectedVoice.value,
+    toast,
+  ]);
 
   // DELETE HANDLERS
   const promptDelete = (id: string) => {
@@ -259,15 +295,13 @@ export default function AvatarPage() {
 
     try {
       await api.delete(`/media/videos/${itemToDelete}`);
-      // Success
-      mutate();
+      void mutate();
       setDeleteModalOpen(false);
       setItemToDelete(null);
+      toast.success("Video deleted");
     } catch (error) {
-      console.error("Failed to delete video", error);
-      alert("Failed to delete video.");
-      // Revert optimistic update
-      mutate(previousData, false);
+      toast.error(getErrorMessage(error, "Failed to delete video"));
+      void mutate(previousData, false);
     } finally {
       setIsDeleting(false);
     }
@@ -291,7 +325,7 @@ export default function AvatarPage() {
         isDeleting={isDeleting}
       />
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth custom-scrollbar">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8 sm:mb-12 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -764,44 +798,16 @@ function VideoCard({
 }) {
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Direct Download Handler
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (isDownloading) return;
+    if (isDownloading || !video.public_url) return;
 
     setIsDownloading(true);
-    try {
-      const videoUrl = video.public_url;
-      if (!videoUrl) throw new Error("No URL");
-
-      const response = await fetch(videoUrl, {
-        mode: "cors",
-        cache: "no-cache",
-      });
-
-      if (!response.ok) throw new Error("Network response was not ok");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const filename = `generated-avatar-${video.created_at.split("T")[0]}.mp4`;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Direct download failed", err);
-      alert(
-        "Unable to download directly due to browser security restrictions. Opening in new tab instead."
-      );
-      if (video.public_url) window.open(video.public_url, "_blank");
-    } finally {
-      setIsDownloading(false);
-    }
+    await downloadFile(
+      video.public_url,
+      timestampedName("generated-avatar", video.created_at, "mp4"),
+    );
+    setIsDownloading(false);
   };
   const isLoading =
     video.status === "processing" || video.status === "processing_external";
@@ -865,7 +871,7 @@ function VideoCard({
         </div>
 
         <p className="text-slate-600 dark:text-gray-300 text-sm line-clamp-3 mb-4 leading-relaxed flex-1 italic">
-          "{video.text_prompt}"
+          "{video.script_text}"
         </p>
 
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800/50 mt-auto">
@@ -963,7 +969,7 @@ function ConfigSelector({
           <div className="px-3 py-2 text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800/50">
             Select {label}
           </div>
-          <div className="max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+          <div className="max-h-60 overflow-y-auto custom-scrollbar">
             {options.map((option) => (
               <button
                 key={option.id}

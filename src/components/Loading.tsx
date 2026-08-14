@@ -1,126 +1,42 @@
-const Loading = () => {
-  return (
-    <div className="flex h-screen w-full items-center justify-center bg-blue-50 dark:bg-[#0a0b0f] text-slate-900 dark:text-white overflow-hidden transition-colors duration-300">
-      <div className="relative flex flex-col items-center">
-        
-        {/* Animated Background Rings */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="absolute h-32 w-32 sm:h-40 sm:w-40 md:h-48 md:w-48 rounded-full border border-indigo-200 dark:border-indigo-500/20 animate-ping" 
-               style={{ animationDuration: '3s' }} />
-          <div className="absolute h-40 w-40 sm:h-48 sm:w-48 md:h-56 md:w-56 rounded-full border border-purple-200 dark:border-purple-500/20 animate-ping" 
-               style={{ animationDuration: '4s', animationDelay: '0.5s' }} />
-        </div>
+import { cn } from "../lib/utils";
 
-        {/* Main Loading Animation */}
-        <div className="relative z-10">
-          {/* Outer Rotating Ring with Gradient */}
-          <div className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28">
-            {/* Gradient Ring */}
-            <svg className="absolute inset-0 -rotate-90 animate-spin" style={{ animationDuration: '2s' }}>
-              <circle
-                cx="50%"
-                cy="50%"
-                r="35%"
-                fill="none"
-                stroke="url(#gradient1)"
-                strokeWidth="3"
-                strokeDasharray="70 30"
-                strokeLinecap="round"
-              />
-              <defs>
-                <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#818cf8" />
-                  <stop offset="50%" stopColor="#c084fc" />
-                  <stop offset="100%" stopColor="#ec4899" />
-                </linearGradient>
-              </defs>
-            </svg>
-
-            {/* Counter Rotating Ring */}
-            <svg className="absolute inset-0 rotate-90 animate-spin" style={{ animationDuration: '3s', animationDirection: 'reverse' }}>
-              <circle
-                cx="50%"
-                cy="50%"
-                r="42%"
-                fill="none"
-                stroke="url(#gradient2)"
-                strokeWidth="2"
-                strokeDasharray="40 60"
-                strokeLinecap="round"
-                opacity="0.6"
-              />
-              <defs>
-                <linearGradient id="gradient2" x1="100%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#06b6d4" />
-                  <stop offset="100%" stopColor="#3b82f6" />
-                </linearGradient>
-              </defs>
-            </svg>
-
-            {/* Center Glow */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 animate-pulse" 
-                   style={{ animationDuration: '2s' }}>
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 blur-xl opacity-70" />
-              </div>
-            </div>
-
-            {/* Orbiting Particles */}
-            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '4s' }}>
-              <div className="absolute top-0 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/50" />
-            </div>
-            
-            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '3.5s', animationDirection: 'reverse' }}>
-              <div className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2 translate-y-1/2 rounded-full bg-pink-400 shadow-lg shadow-pink-400/50" />
-            </div>
-
-            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '5s' }}>
-              <div className="absolute top-1/2 right-0 h-1.5 w-1.5 translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-400 shadow-lg shadow-purple-400/50" />
-            </div>
-
-            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '4.5s', animationDirection: 'reverse' }}>
-              <div className="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-400 shadow-lg shadow-indigo-400/50" />
-            </div>
-          </div>
-        </div>
-
-        {/* Animated Loading Text */}
-        <div className="mt-8 sm:mt-10 md:mt-12 flex flex-col items-center space-y-3">
-          <div className="flex space-x-1">
-            {['L', 'O', 'A', 'D', 'I', 'N', 'G'].map((letter, index) => (
-              <span
-                key={index}
-                className="text-sm sm:text-base md:text-lg font-semibold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 animate-pulse"
-                style={{
-                  animationDelay: `${index * 0.1}s`,
-                  animationDuration: '1.5s'
-                }}
-              >
-                {letter}
-              </span>
-            ))}
-          </div>
-          
-          {/* Progress Dots */}
-          <div className="flex space-x-2">
-            {[0, 1, 2].map((index) => (
-              <div
-                key={index}
-                className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 animate-bounce"
-                style={{
-                  animationDelay: `${index * 0.15}s`,
-                  animationDuration: '1s'
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom Glow Effect - Adaptive Opacity */}
-        <div className="absolute -bottom-10 sm:-bottom-12 md:-bottom-16 left-1/2 -translate-x-1/2 h-16 sm:h-20 md:h-24 w-32 sm:w-40 md:w-48 bg-gradient-to-t from-blue-200/50 dark:from-indigo-500/20 to-transparent blur-2xl rounded-full" />
-      </div>
-    </div>
-  );
+type LoadingProps = {
+  /** `screen` fills the viewport; `inline` fills whatever container it is in. */
+  variant?: "screen" | "inline";
+  label?: string;
 };
 
-export default Loading;
+/**
+ * Loading indicator.
+ *
+ * Deliberately light: two composited rings and a fade. The previous version ran
+ * eleven simultaneous animations (spinning rings, ping rings, orbiting dots,
+ * pulsing letters), which is a lot of continuous compositing for something that
+ * often appears for a few hundred milliseconds — and on a slow device it made
+ * the very moment the app should feel fastest feel busy.
+ */
+export default function Loading({ variant = "screen", label = "Loading" }: LoadingProps) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn(
+        "flex w-full flex-col items-center justify-center gap-4 animate-fade-in",
+        variant === "screen" ? "h-screen app-surface" : "min-h-[50vh] flex-1",
+      )}
+    >
+      <div className="relative h-12 w-12">
+        {/* Track */}
+        <div className="absolute inset-0 rounded-full border-2 border-slate-200 dark:border-white/10" />
+        {/* Rotating arc: transform only, so it never triggers layout. */}
+        <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-blue-500 border-r-purple-500" />
+        <div className="absolute inset-[30%] rounded-full bg-gradient-to-br from-blue-500 to-purple-600 opacity-80" />
+      </div>
+
+      <p className="text-xs font-medium tracking-wide text-slate-500 dark:text-gray-400">
+        {label}
+        <span className="sr-only">, please wait</span>
+      </p>
+    </div>
+  );
+}

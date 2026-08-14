@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import api from "../api/client";
+import api, { fetcher, getErrorMessage } from "../api/client";
 import {
   SpeakerWaveIcon,
   PlayCircleIcon,
@@ -13,8 +13,11 @@ import {
   ClockIcon,
   TrashIcon,
 } from "@heroicons/react/24/solid";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth-context";
+import { useToast } from "../context/toast-context";
+import { useAwaitNewItem } from "../hooks/useAwaitNewItem";
 import DeleteModal from "../components/DeleteModal";
+import { downloadFile, timestampedName } from "../lib/download";
 
 // Types
 interface AudioFile {
@@ -42,11 +45,15 @@ const AVAILABLE_VOICES: Voice[] = [
   { id: "en-US-Neural2-J", name: "Male (Steady)" },
 ];
 
-// SWR Fetcher
-const fetcher = (url: string) => api.get(url).then((res) => res.data);
+/** Generation is queued, so the audio row appears a few seconds later. */
+const GENERATION_TIMEOUT_MS = 60_000;
+const POLL_INTERVAL_MS = 3000;
+/** Google's per-request synthesis limit, mirrored from the backend. */
+const MAX_TTS_CHARS = 4096;
 
 export default function TTSPage() {
   const { refreshProfile } = useAuth();
+  const toast = useToast();
   const [text, setText] = useState("");
   const [selectedVoice, setSelectedVoice] = useState(AVAILABLE_VOICES[4]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -61,58 +68,47 @@ export default function TTSPage() {
     data: audioFiles,
     mutate,
     isLoading,
-  } = useSWR<AudioFile[]>("/media/list", fetcher);
+  } = useSWR<AudioFile[]>("/media/list", fetcher, {
+    // Poll only while something is being generated. A constant refresh interval
+    // keeps requesting for as long as the tab is open, for no benefit.
+    refreshInterval: isGenerating ? POLL_INTERVAL_MS : 0,
+  });
 
-  const handleGenerate = async () => {
-    if (!text.trim()) return;
+  // Watches the list for the row the worker will insert. Bound to the
+  // component's lifetime, so navigating away cancels it cleanly.
+  useAwaitNewItem<AudioFile>({
+    items: audioFiles,
+    isWaiting: isGenerating,
+    timeoutMs: GENERATION_TIMEOUT_MS,
+    onArrived: (audio) => {
+      setLastGeneratedId(audio.id);
+      setText("");
+      setIsGenerating(false);
+      void refreshProfile();
+    },
+    onTimeout: () => {
+      setIsGenerating(false);
+      toast.error("This is taking longer than expected. It will appear in your history shortly.");
+    },
+  });
 
-    // Clear previous result & start loading
+  const handleGenerate = useCallback(async () => {
+    const trimmed = text.trim();
+    if (!trimmed || isGenerating) return;
+
     setLastGeneratedId(null);
     setIsGenerating(true);
 
     try {
-      // Trigger Generation (returns immediately with task_id)
-      await api.post("/media/generate", {
-        text,
-        voice_name: selectedVoice.id,
-      });
-
-      refreshProfile();
-
-      // Poll for the new file
-      const startTime = Date.now();
-      const currentLatestId =
-        audioFiles && audioFiles.length > 0 ? audioFiles[0].id : null;
-
-      const pollInterval = setInterval(async () => {
-        // Force refresh data
-        const updatedList = await mutate();
-
-        if (!updatedList || updatedList.length === 0) return;
-
-        const newestFile = updatedList[0];
-
-        // Check if a new file has appeared (ID is different from what we had before)
-        if (newestFile.id !== currentLatestId) {
-          clearInterval(pollInterval);
-          setLastGeneratedId(newestFile.id);
-          setText("");
-          setIsGenerating(false); // Stop loading animation only now
-        }
-
-        // Timeout after 30 seconds to prevent infinite loading
-        if (Date.now() - startTime > 30000) {
-          clearInterval(pollInterval);
-          setIsGenerating(false);
-          alert("Generation took too long. Please check history.");
-        }
-      }, 2000); // Check every 2 seconds
+      await api.post("/media/generate", { text: trimmed, voice_name: selectedVoice.id });
+      // Credits are debited when the job is accepted, so refresh the balance now.
+      void refreshProfile();
+      void mutate();
     } catch (err) {
-      console.error("TTS Failed", err);
-      alert("Failed to generate audio. Please try again.");
       setIsGenerating(false);
+      toast.error(getErrorMessage(err, "Failed to generate audio"));
     }
-  };
+  }, [text, isGenerating, selectedVoice.id, refreshProfile, mutate, toast]);
 
   // DELETE HANDLERS
   const promptDelete = (id: string) => {
@@ -125,25 +121,19 @@ export default function TTSPage() {
 
     setIsDeleting(true);
 
-    // OPTIMISTIC UPDATE
+    // Optimistic removal, rolled back if the request fails.
     const previousData = audioFiles;
-    mutate(
-      (currentData) =>
-        currentData?.filter((audio) => audio.id !== itemToDelete),
-      false
-    );
+    void mutate((currentData) => currentData?.filter((audio) => audio.id !== itemToDelete), false);
 
     try {
       await api.delete(`/media/audio/${itemToDelete}`);
-      // Success
-      mutate();
+      void mutate();
       setDeleteModalOpen(false);
       setItemToDelete(null);
+      toast.success("Audio deleted");
     } catch (error) {
-      console.error("Failed to delete audio", error);
-      alert("Failed to delete audio.");
-      // Revert optimistic update
-      mutate(previousData, false);
+      toast.error(getErrorMessage(error, "Failed to delete audio"));
+      void mutate(previousData, false);
     } finally {
       setIsDeleting(false);
     }
@@ -173,7 +163,7 @@ export default function TTSPage() {
         isDeleting={isDeleting}
       />
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth custom-scrollbar">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8 sm:mb-12 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -210,8 +200,8 @@ export default function TTSPage() {
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       placeholder="Enter your text here to convert into natural-sounding speech..."
-                      className="w-full h-32 sm:h-40 bg-slate-50 dark:bg-slate-950/30 text-slate-900 dark:text-gray-100 p-4 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-slate-400 dark:placeholder-gray-600 text-base sm:text-lg border border-slate-200 dark:border-slate-800/50 transition-all [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
-                      maxLength={4096}
+                      className="w-full h-32 sm:h-40 bg-slate-50 dark:bg-slate-950/30 text-slate-900 dark:text-gray-100 p-4 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-slate-400 dark:placeholder-gray-600 text-base sm:text-lg border border-slate-200 dark:border-slate-800/50 transition-all custom-scrollbar"
+                      maxLength={MAX_TTS_CHARS}
                     />
                   </div>
 
@@ -230,7 +220,7 @@ export default function TTSPage() {
                       {/* Action Buttons */}
                       <div className="flex items-center justify-between sm:justify-end gap-4">
                         <span className="text-xs text-slate-400 dark:text-gray-500 font-mono">
-                          {text.length} / 4096
+                          {text.length} / {MAX_TTS_CHARS}
                         </span>
 
                         <button
@@ -381,41 +371,14 @@ function AudioCard({
     "Standard Voice";
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Direct Download Handler
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (isDownloading) return;
 
     setIsDownloading(true);
-    try {
-      const response = await fetch(file.public_url, {
-        mode: "cors",
-        cache: "no-cache",
-      });
-
-      if (!response.ok) throw new Error("Network response was not ok");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const filename = `generated-audio-${file.created_at.split("T")[0]}.mp3`;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Direct download failed", err);
-      alert(
-        "Unable to download directly due to browser security restrictions. Opening in new tab instead."
-      );
-      window.open(file.public_url, "_blank");
-    } finally {
-      setIsDownloading(false);
-    }
+    // Falls back to opening a tab when the storage host blocks cross-origin reads.
+    await downloadFile(file.public_url, timestampedName("generated-audio", file.created_at, "mp3"));
+    setIsDownloading(false);
   };
 
   return (

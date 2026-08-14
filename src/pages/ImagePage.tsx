@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import api from "../api/client";
+import useSWRImmutable from "swr/immutable";
+import api, { fetcher, getErrorMessage } from "../api/client";
 import {
   PhotoIcon,
   PlayCircleIcon,
@@ -17,7 +18,11 @@ import {
   XMarkIcon,
   TrashIcon,
 } from "@heroicons/react/24/solid";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth-context";
+import { useToast } from "../context/toast-context";
+import { useAwaitNewItem } from "../hooks/useAwaitNewItem";
+import { downloadFile, timestampedName } from "../lib/download";
+import { MAX_FILE_SIZE_BYTES, UPLOAD_LIMITS } from "../lib/env";
 import DeleteModal from "../components/DeleteModal";
 
 // Types
@@ -43,34 +48,53 @@ const MODELS: ConfigOption[] = [
   { id: "gpt-image-1.5", name: "GPT Image 1.5", value: "gpt-image-1.5" },
 ];
 
-const GPT_QUALITIES: ConfigOption[] = [
-  { id: "low", name: "Low", value: "low" },
-  { id: "medium", name: "Medium", value: "medium" },
-  { id: "high", name: "High", value: "high" },
-];
+/**
+ * Sizes are model-specific and come from GET /media/images/options, which is
+ * generated from the same pricing table the backend validates against. The
+ * hard-coded list this replaces offered DALL-E aspect ratios for every model,
+ * and the backend now rejects the combinations it cannot price.
+ */
+type ImageOptions = Record<string, { qualities: string[]; sizes: string[] }>;
 
-const DALLE_QUALITIES: ConfigOption[] = [
-  { id: "standard", name: "Standard", value: "standard" },
-  { id: "hd", name: "HD Quality", value: "hd" },
-];
+const SIZE_LABELS: Record<string, string> = {
+  "1024x1024": "Square",
+  "1024x1536": "Portrait",
+  "1536x1024": "Landscape",
+  "1024x1792": "Portrait",
+  "1792x1024": "Landscape",
+};
 
-const SIZES: ConfigOption[] = [
-  { id: "1024x1024", name: "Square (1024x1024)", value: "1024x1024" },
-  { id: "1024x1792", name: "Portrait (1024x1792)", value: "1024x1792" },
-  { id: "1792x1024", name: "Landscape (1792x1024)", value: "1792x1024" },
-];
+const QUALITY_LABELS: Record<string, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  standard: "Standard",
+  hd: "HD Quality",
+};
 
-// SWR Fetcher
-const fetcher = (url: string) => api.get(url).then((res) => res.data);
+const FALLBACK_OPTIONS: ImageOptions = {
+  "gpt-image-1.5": {
+    qualities: ["low", "medium", "high"],
+    sizes: ["1024x1024", "1024x1536", "1536x1024"],
+  },
+  "dall-e-3": {
+    qualities: ["standard", "hd"],
+    sizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+};
+
+const GENERATION_TIMEOUT_MS = 120_000;
+const POLL_INTERVAL_MS = 3000;
 
 export default function ImagePage() {
   const { refreshProfile } = useAuth();
+  const toast = useToast();
   const [prompt, setPrompt] = useState("");
 
   // Configuration State
   const [selectedModel, setSelectedModel] = useState(MODELS[0]);
-  const [selectedQuality, setSelectedQuality] = useState(GPT_QUALITIES[1]);
-  const [selectedSize, setSelectedSize] = useState(SIZES[0]);
+  const [qualityValue, setQualityValue] = useState("standard");
+  const [sizeValue, setSizeValue] = useState("1024x1024");
 
   // Reference Image State
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
@@ -90,105 +114,144 @@ export default function ImagePage() {
     data: imageFiles,
     mutate,
     isLoading,
-  } = useSWR<ImageFile[]>("/media/images/list", fetcher);
+  } = useSWR<ImageFile[]>("/media/images/list", fetcher, {
+    // Only poll while a render is in flight.
+    refreshInterval: isGenerating ? POLL_INTERVAL_MS : 0,
+  });
 
-  // Dynamic Quality Options based on Model
-  const currentQualities =
-    selectedModel.value === "gpt-image-1.5" ? GPT_QUALITIES : DALLE_QUALITIES;
+  // Catalogue of valid model/quality/size combinations, straight from the API.
+  const { data: optionsData } = useSWRImmutable<{ options: ImageOptions }>(
+    "/media/images/options",
+    fetcher,
+  );
+  const options = optionsData?.options ?? FALLBACK_OPTIONS;
+  const modelOptions = options[selectedModel.value] ?? FALLBACK_OPTIONS["gpt-image-1.5"];
 
-  // Reset Quality and Reference Image when Model changes
+  const currentQualities: ConfigOption[] = useMemo(
+    () =>
+      modelOptions.qualities.map((value) => ({
+        id: value,
+        value,
+        name: QUALITY_LABELS[value] ?? value,
+      })),
+    [modelOptions],
+  );
+
+  const currentSizes: ConfigOption[] = useMemo(
+    () =>
+      modelOptions.sizes.map((value) => ({
+        id: value,
+        value,
+        name: `${SIZE_LABELS[value] ?? value} (${value})`,
+      })),
+    [modelOptions],
+  );
+
+  const selectedQuality =
+    currentQualities.find((option) => option.value === qualityValue) ?? currentQualities[0];
+  const selectedSize =
+    currentSizes.find((option) => option.value === sizeValue) ?? currentSizes[0];
+
+  // Switching models can invalidate the current choice, so snap back to a
+  // combination this model actually supports.
   useEffect(() => {
-    if (selectedModel.value === "gpt-image-1.5") {
-      setSelectedQuality(GPT_QUALITIES[1]);
-    } else {
-      setSelectedQuality(DALLE_QUALITIES[0]);
+    if (!modelOptions.qualities.includes(qualityValue)) {
+      setQualityValue(modelOptions.qualities[Math.min(1, modelOptions.qualities.length - 1)]);
+    }
+    if (!modelOptions.sizes.includes(sizeValue)) {
+      setSizeValue(modelOptions.sizes[0]);
+    }
+    if (selectedModel.value !== "gpt-image-1.5") {
       setReferenceImage(null);
       setReferencePreview(null);
     }
-  }, [selectedModel.id]);
+  }, [modelOptions, qualityValue, sizeValue, selectedModel.value]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setReferenceImage(file);
-      const objectUrl = URL.createObjectURL(file);
-      setReferencePreview(objectUrl);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Checked here so the user is told immediately rather than after an upload
+    // that the backend would reject anyway.
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast.error(`Reference image must be under ${UPLOAD_LIMITS.maxFileSizeMb} MB`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
     }
+
+    setReferenceImage(file);
+    setReferencePreview((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return URL.createObjectURL(file);
+    });
   };
 
-  const clearReferenceImage = () => {
+  const clearReferenceImage = useCallback(() => {
     setReferenceImage(null);
-    setReferencePreview(null);
+    setReferencePreview((previous) => {
+      // Without the revoke, every picked file leaks a blob for the tab's lifetime.
+      if (previous) URL.revokeObjectURL(previous);
+      return null;
+    });
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  }, []);
+
+  // Release the last preview when leaving the page.
+  useEffect(() => () => setReferencePreview((previous) => {
+    if (previous) URL.revokeObjectURL(previous);
+    return null;
+  }), []);
+
+  useAwaitNewItem<ImageFile>({
+    items: imageFiles,
+    isWaiting: isGenerating,
+    timeoutMs: GENERATION_TIMEOUT_MS,
+    onArrived: (image) => {
+      setLastGeneratedId(image.id);
+      setPrompt("");
+      clearReferenceImage();
+      setIsGenerating(false);
+      void refreshProfile();
+    },
+    onTimeout: () => {
+      setIsGenerating(false);
+      toast.error("This is taking longer than expected. It will appear in your history shortly.");
+    },
+  });
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    const trimmed = prompt.trim();
+    if (!trimmed || isGenerating) return;
 
     setLastGeneratedId(null);
     setIsGenerating(true);
 
     try {
-      let referenceImageUrl = null;
+      let referenceImageUrl: string | null = null;
 
-      // Upload Reference Image if exists and model is GPT 1.5
       if (selectedModel.value === "gpt-image-1.5" && referenceImage) {
         const formData = new FormData();
         formData.append("file", referenceImage);
-
-        const uploadRes = await api.post("/media/upload", formData, {
+        const uploadRes = await api.post<{ public_url: string }>("/media/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         referenceImageUrl = uploadRes.data.public_url;
       }
 
-      // Trigger Generation
       await api.post("/media/generate-image", {
-        prompt,
+        prompt: trimmed,
         model: selectedModel.value,
         quality: selectedQuality.value,
         size: selectedSize.value,
         reference_image_url: referenceImageUrl,
       });
 
-      refreshProfile();
-
-      // Poll for the new file
-      const startTime = Date.now();
-      const currentLatestId =
-        imageFiles && imageFiles.length > 0 ? imageFiles[0].id : null;
-
-      const pollInterval = setInterval(async () => {
-        const updatedList = await mutate();
-
-        if (!updatedList || updatedList.length === 0) return;
-
-        const newestFile = updatedList[0];
-
-        if (newestFile.id !== currentLatestId) {
-          clearInterval(pollInterval);
-          setLastGeneratedId(newestFile.id);
-          setPrompt("");
-          clearReferenceImage();
-          setIsGenerating(false);
-        }
-
-        if (Date.now() - startTime > 60000) {
-          clearInterval(pollInterval);
-          setIsGenerating(false);
-          alert(
-            "Generation taking longer than expected. Check history shortly."
-          );
-        }
-      }, 3000);
-    } catch (err: any) {
-      console.error("Image Generation Failed", err);
-      if (err.response?.data?.detail) {
-        alert(`Error: ${err.response.data.detail}`);
-      } else {
-        alert("Failed to generate image. Please try again.");
-      }
+      // Credits are taken when the job is queued.
+      void refreshProfile();
+      void mutate();
+    } catch (err) {
       setIsGenerating(false);
+      toast.error(getErrorMessage(err, "Failed to generate image"));
     }
   };
 
@@ -212,13 +275,13 @@ export default function ImagePage() {
 
     try {
       await api.delete(`/media/images/${itemToDelete}`);
-      mutate();
+      void mutate();
       setDeleteModalOpen(false);
       setItemToDelete(null);
+      toast.success("Image deleted");
     } catch (error) {
-      console.error("Failed to delete image", error);
-      alert("Failed to delete image.");
-      mutate(previousData, false);
+      toast.error(getErrorMessage(error, "Failed to delete image"));
+      void mutate(previousData, false);
     } finally {
       setIsDeleting(false);
     }
@@ -246,7 +309,7 @@ export default function ImagePage() {
         isDeleting={isDeleting}
       />
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth custom-scrollbar">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8 sm:mb-12 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -284,7 +347,7 @@ export default function ImagePage() {
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       placeholder="Describe the image you want to create in detail..."
-                      className="w-full h-32 sm:h-40 bg-slate-50 dark:bg-slate-950/30 text-slate-900 dark:text-gray-100 p-4 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-slate-400 dark:placeholder-gray-600 text-base sm:text-lg border border-slate-200 dark:border-slate-800/50 transition-all [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+                      className="w-full h-32 sm:h-40 bg-slate-50 dark:bg-slate-950/30 text-slate-900 dark:text-gray-100 p-4 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-slate-400 dark:placeholder-gray-600 text-base sm:text-lg border border-slate-200 dark:border-slate-800/50 transition-all custom-scrollbar"
                       maxLength={1000}
                     />
 
@@ -327,15 +390,15 @@ export default function ImagePage() {
                           label="Quality"
                           icon={<SwatchIcon className="w-4 h-4" />}
                           selected={selectedQuality}
-                          onChange={setSelectedQuality}
+                          onChange={(option) => setQualityValue(option.value)}
                           options={currentQualities}
                         />
                         <ConfigSelector
                           label="Size"
                           icon={<ArrowsPointingOutIcon className="w-4 h-4" />}
                           selected={selectedSize}
-                          onChange={setSelectedSize}
-                          options={SIZES}
+                          onChange={(option) => setSizeValue(option.value)}
+                          options={currentSizes}
                         />
                       </div>
 
@@ -513,44 +576,18 @@ function ImageCard({
 }) {
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Direct Download Handler
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (isDownloading) return;
 
     setIsDownloading(true);
-    try {
-      const response = await fetch(file.public_url, {
-        mode: "cors",
-        cache: "no-cache",
-      });
-
-      if (!response.ok) throw new Error("Network response was not ok");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      // Construct a clean filename
-      const filename = `generated-${file.model}-${
-        file.created_at.split("T")[0]
-      }.png`;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Direct download failed", err);
-      alert(
-        "Unable to download directly due to browser security restrictions on cross-origin images. Please try right-clicking the image and selecting 'Save Image As'."
-      );
-    } finally {
-      setIsDownloading(false);
-    }
+    // Opens the asset in a tab if the storage host blocks the cross-origin read.
+    await downloadFile(
+      file.public_url,
+      timestampedName(`generated-${file.model}`, file.created_at, "png"),
+    );
+    setIsDownloading(false);
   };
 
   return (
@@ -701,7 +738,7 @@ function ConfigSelector({
           <div className="px-3 py-2 text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800/50">
             Select {label}
           </div>
-          <div className="max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+          <div className="max-h-60 overflow-y-auto custom-scrollbar">
             {options.map((option) => (
               <button
                 key={option.id}

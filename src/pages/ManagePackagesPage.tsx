@@ -13,8 +13,9 @@ import {
   ArrowPathIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
-import api from "../api/client";
+import api, { fetcher, getErrorMessage } from "../api/client";
 import DeleteModal from "../components/DeleteModal";
+import { useToast } from "../context/toast-context";
 
 // Types
 interface Package {
@@ -33,9 +34,9 @@ const API_COST_PER_CREDIT = 0.025;
 const STRIPE_FIXED_FEE = 0.3;
 const STRIPE_PERCENT_FEE = 0.029;
 
-const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
 export default function ManagePackagesPage() {
+  const toast = useToast();
   const {
     data: packages,
     error,
@@ -122,19 +123,10 @@ export default function ManagePackagesPage() {
 
       mutate("/packages/");
       setIsModalOpen(false);
-    } catch (err: any) {
-      console.error(err);
-      // specific error handling for duplicate names
-      if (
-        err.response?.status === 400 &&
-        err.response?.data?.detail?.includes("exists")
-      ) {
-        setFormError(
-          "A package with this name already exists (possibly in the archived list below). Please edit that one instead."
-        );
-      } else {
-        setFormError("Failed to save package. Please check your inputs.");
-      }
+    } catch (err) {
+      // getErrorMessage unwraps FastAPI's `detail`, so a duplicate name or a
+      // validation failure is reported in the backend's own words.
+      setFormError(getErrorMessage(err, "Failed to save package. Please check your inputs."));
     }
   };
 
@@ -143,10 +135,11 @@ export default function ManagePackagesPage() {
     setIsDeleting(true);
     try {
       await api.delete(`/packages/${itemToDelete}`);
-      mutate("/packages/");
+      void mutate("/packages/");
       setDeleteModalOpen(false);
+      toast.success("Package archived");
     } catch (err) {
-      alert("Failed to delete package.");
+      toast.error(getErrorMessage(err, "Failed to archive package"));
     } finally {
       setIsDeleting(false);
     }
@@ -161,7 +154,7 @@ export default function ManagePackagesPage() {
     );
 
   return (
-    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] relative overflow-hidden overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] transition-colors duration-300">
+    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] relative overflow-hidden overflow-y-auto custom-scrollbar transition-colors duration-300">
       {/* Delete Modal */}
       <DeleteModal
         isOpen={deleteModalOpen}
@@ -256,7 +249,7 @@ export default function ManagePackagesPage() {
 
             <form
               onSubmit={handleSubmit}
-              className="flex-1 overflow-y-auto p-6 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+              className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar"
             >
               {/* Error Message */}
               {formError && (

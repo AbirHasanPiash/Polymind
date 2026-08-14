@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import { ModeToggle } from '../components/mode-toggle';
 import { 
   RocketLaunchIcon, 
@@ -16,7 +16,7 @@ export default function Home() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="h-screen w-full bg-blue-50 dark:bg-[#0a0b0f] transition-colors duration-300 font-sans selection:bg-blue-500/30 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+    <div className="min-h-dvh w-full app-surface font-sans selection:bg-blue-500/30 overflow-x-hidden">
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#0a0b0f]/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 transition-colors">
@@ -45,12 +45,20 @@ export default function Home() {
                 <ArrowRightIcon className="h-3 w-3 sm:h-4 sm:w-4" />
               </Link>
             ) : (
-              <Link 
-                to="/login" 
-                className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-medium transition-all shadow-lg shadow-blue-600/20 active:scale-95 text-xs sm:text-sm"
-              >
-                Get Started
-              </Link>
+              <>
+                <Link
+                  to="/login"
+                  className="hidden px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 sm:inline-block sm:text-sm dark:text-gray-300 dark:hover:text-white"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-medium transition-all shadow-lg shadow-blue-600/20 active:scale-95 text-xs sm:text-sm"
+                >
+                  Get Started
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -84,7 +92,7 @@ export default function Home() {
 
           <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row justify-center gap-4 px-4 sm:px-0 animate-in fade-in slide-in-from-bottom-10 duration-700">
             <Link 
-              to={isAuthenticated ? "/dashboard" : "/login"}
+              to={isAuthenticated ? "/dashboard" : "/signup"}
               className="w-full sm:w-auto px-8 py-3.5 sm:py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-base sm:text-lg font-bold rounded-2xl hover:-translate-y-1 transition-all shadow-xl shadow-slate-900/10 dark:shadow-white/5 flex items-center justify-center gap-2"
             >
               <BoltIcon className="w-5 h-5" />
@@ -171,8 +179,8 @@ export default function Home() {
                   <span className="text-4xl sm:text-5xl font-extrabold text-white">$10</span>
                   <span className="text-blue-200 text-sm sm:text-base">/ one-time</span>
                 </div>
-                <Link 
-                  to="/login"
+                <Link
+                  to={isAuthenticated ? "/dashboard/billing" : "/signup"}
                   className="block w-full py-3 bg-white text-blue-900 font-bold rounded-xl hover:bg-blue-50 transition-colors shadow-lg active:scale-95 text-sm sm:text-base"
                 >
                   Get Credits

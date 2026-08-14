@@ -6,7 +6,7 @@ export default function PaymentCancelPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-blue-50 dark:bg-[#0a0b0f] transition-colors duration-300 px-4 py-8 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="relative flex h-full items-center justify-center overflow-y-auto app-surface px-4 py-8 sm:px-6 lg:px-8 custom-scrollbar">
       
       {/* Subtle background glow - Red tint for cancellation context */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">

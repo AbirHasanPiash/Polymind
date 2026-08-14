@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import api from '../api/client';
+import { fetcher } from '../api/client';
 import { 
   CurrencyDollarIcon, 
   UsersIcon, 
@@ -19,24 +19,54 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 
-const fetcher = (url: string) => api.get(url).then((res) => res.data);
+import { useTheme } from '../components/theme-context';
+import { formatCredits, formatCurrency } from '../lib/format';
+
+/** Matches AdminOverviewStats on the backend. */
+type StatTrend = { date: string; value: number | string };
+
+type AdminOverview = {
+  total_revenue: number | string;
+  total_users: number;
+  total_chats: number;
+  total_images_generated: number;
+  total_audio_generated: number;
+  total_videos_generated: number;
+  total_tokens_consumed: number;
+  total_ai_cost: number | string;
+  revenue_trend: StatTrend[];
+  user_growth_trend: StatTrend[];
+};
+
+const REFRESH_INTERVAL_MS = 60_000;
 
 export default function AdminStatsPage() {
-  const { data, isLoading } = useSWR('/admin/stats/overview', fetcher, {
-    refreshInterval: 100000, 
+  const { resolvedTheme } = useTheme();
+  const { data, isLoading } = useSWR<AdminOverview>('/admin/stats/overview', fetcher, {
+    refreshInterval: REFRESH_INTERVAL_MS,
   });
+
+  // Recharts renders the tooltip with inline styles, so it cannot inherit the
+  // theme from CSS. A dark tooltip on a white dashboard was unreadable.
+  const isDark = resolvedTheme === 'dark';
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#0f172a' : '#ffffff',
+    border: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}`,
+    borderRadius: '12px',
+    color: isDark ? '#ffffff' : '#0f172a',
+    boxShadow: '0 10px 25px rgb(0 0 0 / 0.1)',
+  };
+  const axisColor = isDark ? '#94a3b8' : '#64748b';
 
   if (isLoading) return <AdminSkeleton />;
 
-  const totalRevenue = Number(data?.total_revenue || 0);
   const totalTokens = Number(data?.total_tokens_consumed || 0);
-  const totalAiCost = Number(data?.total_ai_cost || 0);
   const totalUsers = Number(data?.total_users || 0);
 
   const stats = [
     { 
       name: 'Total Revenue', 
-      value: `$${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
+      value: formatCurrency(data?.total_revenue), 
       icon: CurrencyDollarIcon, 
       color: 'text-emerald-600 dark:text-emerald-400', 
       bg: 'bg-emerald-100 dark:bg-emerald-500/10' 
@@ -57,7 +87,7 @@ export default function AdminStatsPage() {
     },
     { 
       name: 'AI Cost', 
-      value: `$${totalAiCost.toFixed(2)}`,
+      value: `${formatCredits(data?.total_ai_cost)} cr`,
       icon: ArrowTrendingUpIcon, 
       color: 'text-rose-600 dark:text-red-400', 
       bg: 'bg-rose-100 dark:bg-red-500/10' 
@@ -74,7 +104,7 @@ export default function AdminStatsPage() {
 
   return (
     <div className="flex flex-col h-full bg-blue-50 dark:bg-[#0a0b0f] text-slate-900 dark:text-gray-100 overflow-hidden transition-colors duration-300">
-      <div className="flex-1 overflow-y-auto p-6 lg:p-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      <div className="flex-1 overflow-y-auto p-6 lg:p-8 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-8">
           
           {/* Header */}
@@ -123,10 +153,10 @@ export default function AdminStatsPage() {
                         <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickFormatter={(str) => str.split('-').slice(1,3).join('/')} />
-                    <YAxis stroke="#94a3b8" fontSize={12} />
+                    <XAxis dataKey="date" stroke={axisColor} fontSize={12} tickFormatter={(str) => str.split('-').slice(1,3).join('/')} />
+                    <YAxis stroke={axisColor} fontSize={12} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', color: '#fff' }}
+                      contentStyle={tooltipStyle}
                       itemStyle={{ color: '#10b981' }}
                     />
                     <Area type="monotone" dataKey="value" stroke="#10b981" fillOpacity={1} fill="url(#colorRev)" />
@@ -147,10 +177,10 @@ export default function AdminStatsPage() {
                         <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickFormatter={(str) => str.split('-').slice(1,3).join('/')} />
-                    <YAxis stroke="#94a3b8" fontSize={12} />
+                    <XAxis dataKey="date" stroke={axisColor} fontSize={12} tickFormatter={(str) => str.split('-').slice(1,3).join('/')} />
+                    <YAxis stroke={axisColor} fontSize={12} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', color: '#fff' }}
+                      contentStyle={tooltipStyle}
                       itemStyle={{ color: '#3b82f6' }}
                     />
                     <Area type="monotone" dataKey="value" stroke="#3b82f6" fillOpacity={1} fill="url(#colorUsers)" />

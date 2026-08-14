@@ -8,8 +8,9 @@ import {
   CalendarDaysIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import api from '../api/client';
+import api, { fetcher, getErrorMessage } from '../api/client';
 import DeleteModal from '../components/DeleteModal';
+import { useToast } from '../context/toast-context';
 
 // Types
 type ChatHistoryItem = {
@@ -18,11 +19,9 @@ type ChatHistoryItem = {
   created_at: string;
 };
 
-// SWR Fetcher
-const fetcher = (url: string) => api.get(url).then((res) => res.data);
-
 export default function HistoryPage() {
   const navigate = useNavigate();
+  const toast = useToast();
 
   // Destructure mutate to allow manual updates
   const { data: chats, error, isLoading, mutate } = useSWR<ChatHistoryItem[]>('/chat/list', fetcher);
@@ -53,13 +52,13 @@ export default function HistoryPage() {
 
     try {
       await api.delete(`/chat/${itemToDelete}`);
-      mutate();
+      void mutate();
       setDeleteModalOpen(false);
       setItemToDelete(null);
+      toast.success('Conversation deleted');
     } catch (error) {
-      console.error("Failed to delete chat", error);
-      alert("Failed to delete conversation.");
-      mutate(previousData, false);
+      toast.error(getErrorMessage(error, 'Failed to delete this conversation'));
+      void mutate(previousData, false);
     } finally {
       setIsDeleting(false);
     }
@@ -79,7 +78,7 @@ export default function HistoryPage() {
   }, {} as Record<string, ChatHistoryItem[]>);
 
   return (
-    <div className="p-6 h-full flex flex-col bg-blue-50 dark:bg-[#0a0b0f] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] transition-colors duration-300">
+    <div className="p-6 h-full flex flex-col bg-blue-50 dark:bg-[#0a0b0f] overflow-y-auto custom-scrollbar transition-colors duration-300">
       
       <div className="max-w-4xl mx-auto w-full">
         {/* Delete Confirmation Modal */}

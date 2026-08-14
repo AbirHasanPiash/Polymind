@@ -12,17 +12,18 @@ import {
   ArrowPathIcon,
   BuildingLibraryIcon,
 } from "@heroicons/react/24/outline";
-import api from "../api/client";
-import { useAuth } from "../context/AuthContext";
+import api, { fetcher, getErrorMessage } from "../api/client";
+import { useAuth } from "../context/auth-context";
+import { useToast } from "../context/toast-context";
 import Loading from "../components/Loading";
 
 // Types
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+import type {
+  RazorpayFailureResponse,
+  RazorpayOptions,
+  RazorpaySuccessResponse,
+} from "../types/razorpay";
 
 interface Package {
   id: string;
@@ -46,8 +47,6 @@ interface Transaction {
 
 type PaymentGateway = "stripe" | "razorpay";
 
-const fetcher = (url: string) => api.get(url).then((res) => res.data);
-
 // Utility to load Razorpay SDK dynamically
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -61,6 +60,7 @@ const loadRazorpayScript = () => {
 
 export default function BillingPage() {
   const { user, refreshProfile } = useAuth();
+  const toast = useToast();
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentGateway>("stripe");
 
@@ -94,7 +94,7 @@ export default function BillingPage() {
         // RAZORPAY FLOW
         const isLoaded = await loadRazorpayScript();
         if (!isLoaded) {
-          alert("Razorpay SDK failed to load. Are you online?");
+          toast.error("Could not load the Razorpay checkout. Check your connection.");
           setPurchasingId(null);
           return;
         }
@@ -105,14 +105,14 @@ export default function BillingPage() {
         );
 
         // Initialize Razorpay Checkout
-        const options = {
+        const options: RazorpayOptions = {
           key: orderData.key_id,
           amount: orderData.amount,
           currency: orderData.currency,
           name: "MultiAIModel",
           description: `Purchase ${pkg.name}`,
           order_id: orderData.order_id,
-          handler: async function (response: any) {
+          handler: async function (response: RazorpaySuccessResponse) {
             try {
               // Verify Payment on Backend
               await api.post("/payments/verify-razorpay-payment", {
@@ -121,14 +121,11 @@ export default function BillingPage() {
                 razorpay_signature: response.razorpay_signature,
               });
               
-              alert("Payment successful! Credits have been added to your wallet.");
-              mutateTransactions();
-
+              toast.success("Payment successful — credits added to your wallet");
+              void mutateTransactions();
               await refreshProfile();
-
             } catch (err) {
-              console.error(err);
-              alert("Payment verification failed. Please contact support.");
+              toast.error(getErrorMessage(err, "Payment verification failed. Please contact support."));
             } finally {
               setPurchasingId(null);
             }
@@ -147,15 +144,14 @@ export default function BillingPage() {
         };
 
         const rzp = new window.Razorpay(options);
-        rzp.on("payment.failed", function (response: any) {
-          alert(`Payment failed: ${response.error.description}`);
+        rzp.on("payment.failed", (response: RazorpayFailureResponse) => {
+          toast.error(`Payment failed: ${response.error.description}`);
           setPurchasingId(null);
         });
         rzp.open();
       }
     } catch (error) {
-      console.error("Purchase failed", error);
-      alert("Failed to initiate checkout. Please try again.");
+      toast.error(getErrorMessage(error, "Could not start checkout. Please try again."));
       setPurchasingId(null);
     }
   };
@@ -169,7 +165,7 @@ export default function BillingPage() {
   if (!user) return <Loading />;
 
   return (
-    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] relative overflow-hidden overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] transition-colors duration-300">
+    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] relative overflow-hidden overflow-y-auto custom-scrollbar transition-colors duration-300">
       <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 pb-24">
         
         {/* Header & Wallet Section */}

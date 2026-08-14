@@ -11,15 +11,18 @@ import {
   XCircleIcon
 } from '@heroicons/react/24/outline';
 
+import type { AdminUser, AdminUserUpdate } from '../pages/manage_users';
+
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (userId: string, data: any) => Promise<void>;
-  user: any;
+  onSave: (userId: string, data: AdminUserUpdate) => Promise<void>;
+  user: AdminUser | null;
 }
 
 export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUserModalProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -47,23 +50,29 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+
+    const credits = Number.parseFloat(formData.credits);
+    if (!Number.isFinite(credits) || credits < 0) {
+      setValidationError('Credits must be a positive number');
+      return;
+    }
+
+    setValidationError(null);
     setIsSaving(true);
     try {
-      const payload = {
-        // Convert back to number/float when sending to backend
-        credits: parseFloat(formData.credits),
-        is_superuser: formData.is_superuser
-      };
-      await onSave(user.id, payload);
+      await onSave(user.id, { credits, is_superuser: formData.is_superuser });
       onClose();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // The caller already reported the failure; keep the modal open so the
+      // admin can correct their input.
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (!isOpen) return null;
+  // Guard on `user` too: with no record there is nothing to edit.
+  if (!isOpen || !user) return null;
 
   return (
     <div 
@@ -185,6 +194,15 @@ export default function EditUserModal({ isOpen, onClose, onSave, user }: EditUse
             </div>
 
           </div>
+
+          {validationError && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
+            >
+              {validationError}
+            </p>
+          )}
 
           <div className="pt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-slate-100 dark:border-slate-800/50">
             <button

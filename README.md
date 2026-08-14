@@ -1,36 +1,45 @@
 # MultiAIModel Frontend
 
-React single-page app for **MultiAIModel** — streaming chat across GPT, Claude and Gemini,
-image, speech and avatar-video generation, a credit wallet, and the admin console. It talks to
-the [MultiAIModel backend](../ai-platform-backend) over REST and a WebSocket.
+React single-page app for **MultiAIModel** — streaming chat across GPT, Claude and Gemini, image,
+speech and avatar-video generation, a credit wallet, and the admin console. It talks to the
+[MultiAIModel backend](../ai-platform-backend) over REST and a WebSocket.
+
+![React](https://img.shields.io/badge/React-19-61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6)
+![Vite](https://img.shields.io/badge/Vite-7-646cff)
+![Tailwind](https://img.shields.io/badge/Tailwind-4-06b6d4)
+![License](https://img.shields.io/badge/license-proprietary-lightgrey)
 
 ## Features
 
-- **Streaming chat** — tokens render as they arrive, with markdown, LaTeX and syntax-highlighted code
+- **Streaming chat** — tokens render as they arrive, with markdown, LaTeX and highlighted code
 - **Model picker** — the catalogue is loaded from the API, so it can never offer a model the backend rejects
 - **Media studios** — image generation (with reference images), text to speech, and talking-avatar video
 - **Wallet & billing** — live credit balance, credit packages, Stripe Checkout and Razorpay
 - **Admin console** — revenue and usage analytics, user management, package management
 - **Light & dark themes** — applied before first paint, so there is no flash on load
-- **Responsive** — a single layout from 320 px phones to wide desktops
+- **Responsive** — one layout from 320 px phones to wide desktops
 
-## Stack
+## Tech stack
 
 | Concern | Choice |
 | --- | --- |
 | Framework | React 19, TypeScript, Vite 7 |
 | Routing | React Router 7 |
-| Styling | Tailwind CSS 4 (CSS-first config) |
+| Styling | Tailwind CSS 4 (CSS-first config), shadcn-style primitives |
 | Data | SWR for reads, Axios for writes |
 | Realtime | Native WebSocket |
 | Rendering | react-markdown, KaTeX, Prism (async) |
 | Charts | Recharts |
 
-## Quick start
+## Getting started
 
 **Requirements:** Node 20+ and a running backend.
 
 ```bash
+git clone https://github.com/AbirHasanPiash/multimodal-ai-frontend.git
+cd multimodal-ai-frontend
+
 npm install
 cp .env.example .env        # then set VITE_API_URL
 npm run dev                 # http://localhost:5173
@@ -39,19 +48,20 @@ npm run dev                 # http://localhost:5173
 | Script | Purpose |
 | --- | --- |
 | `npm run dev` | Dev server with hot reload |
-| `npm run build` | Type-check and build to `dist/` |
-| `npm run preview` | Serve the production build locally |
+| `npm run build` | Type-check (`tsc -b`) and build to `dist/` |
+| `npm run preview` | Serve the production build on port 4173 |
 | `npm run lint` | ESLint (TypeScript + React Hooks rules) |
 
 ### Environment
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `VITE_API_URL` | yes | Backend origin, no trailing slash and no `/api/v1`. The WebSocket URL is derived from it (`http` → `ws`, `https` → `wss`). |
-| `VITE_GOOGLE_CLIENT_ID` | no | OAuth client for Google sign-in. Falls back to the built-in client; set it to point staging and production at different OAuth clients. |
+| `VITE_API_URL` | yes | Backend origin — no trailing slash, no `/api/v1`. The WebSocket URL is derived from it (`http` → `ws`, `https` → `wss`). |
+| `VITE_GOOGLE_CLIENT_ID` | no | OAuth client for Google sign-in. Falls back to a built-in client id; set it to point staging and production at different OAuth clients. |
 
-Variables are read and validated once in [`src/lib/env.ts`](src/lib/env.ts), so a missing value
-fails loudly at startup instead of producing requests to `undefined/api/v1/...`.
+Both are read and validated once in [`src/lib/env.ts`](src/lib/env.ts), so a missing value fails
+loudly at startup instead of producing requests to `undefined/api/v1/...`. Everything prefixed
+`VITE_` is bundled into the client — never put a secret there.
 
 ## Project structure
 
@@ -62,9 +72,10 @@ src/
 │   ├── auth/           sign-in and sign-up building blocks
 │   ├── chat/           message bubble, markdown renderer, code block
 │   ├── Dashboard/      sidebar and header
+│   ├── landing/        marketing page: nav, hero console, model wall, scroll reveal
 │   └── ui/             shadcn-style primitives and the toast stack
 ├── context/            auth, theme, toasts, chat reset (state + provider split per file)
-├── hooks/              useChatSocket, useMediaQuery, useAwaitNewItem
+├── hooks/              useChatSocket, useModelCatalogue, useReveal, useScrolledPast
 ├── layouts/            dashboard shell
 ├── lib/                env, formatting, downloads, class merging
 ├── pages/              one file per route
@@ -73,7 +84,21 @@ src/
 
 Contexts are split into a `*-context.ts` (state and hook) and a `*Provider.tsx` (component). That
 keeps every component file exporting only components, which is what lets Fast Refresh update a
-component without remounting the tree.
+component without remounting the tree. `@/` resolves to `src/`.
+
+### Routes
+
+| Path | Access | Page |
+| --- | --- | --- |
+| `/`, `/login`, `/signup` | public | landing and auth |
+| `/dashboard` | signed in | chat (`/dashboard/chat/:chatId` for a saved conversation) |
+| `/dashboard/history` | signed in | past conversations |
+| `/dashboard/tts`, `/images`, `/avatar` | signed in | media studios |
+| `/dashboard/billing`, `/settings` | signed in | wallet, packages, account |
+| `/dashboard/payment/success`, `/cancel` | signed in | post-checkout returns |
+| `/dashboard/admin/{users,packages,stats}` | admin | admin console |
+
+Everything past the landing and auth screens is code-split with `React.lazy`.
 
 ## How it works
 
@@ -89,7 +114,8 @@ routes wait for the session check before deciding, and remember where the user w
 `useChatSocket` owns the connection. It reconnects with exponential backoff (1 s → 30 s, capped)
 and stops entirely on close code `1008`, which the backend uses for "invalid token or out of
 credits" — a case retrying cannot fix. The selected model travels **with each message**, so
-switching models mid-conversation does not drop the socket.
+switching models mid-conversation does not drop the socket, and a server-assigned `chat_id` is
+adopted in place rather than triggering a reconnect that would cut off the streaming reply.
 
 Incoming tokens are buffered and flushed once per animation frame rather than on every chunk, and
 each message bubble is memoised, so a long answer re-renders only the message being written — not
@@ -97,10 +123,11 @@ the whole transcript with its markdown and code highlighting.
 
 ### Rendering performance
 
-Routes are code-split with `React.lazy`, and the Suspense boundary sits *inside* the dashboard
-shell so the sidebar and header stay put while a page loads. The markdown/KaTeX/Prism stack and
-Recharts live in the chunks that use them, and Prism grammars are fetched per language on first
-use. First paint downloads roughly a quarter of what it used to.
+The Suspense boundary sits *inside* the dashboard shell, so the sidebar and header stay put while a
+page loads. The markdown/KaTeX/Prism stack and Recharts live in the chunks that use them, and Prism
+grammars are fetched per language on first use. Chunking is deliberately left to Rollup's default
+route-based splitting — forcing `manualChunks` hoisted those heavy bundles into the landing page's
+preloads.
 
 ### Theming
 
@@ -123,8 +150,8 @@ while the preference is "system".
 
 ## Deployment
 
-Any static host works; the project ships a [`vercel.json`](vercel.json) with the SPA rewrite and
-the `Cross-Origin-Opener-Policy` header Google sign-in needs.
+Any static host works; the project ships a [`vercel.json`](vercel.json) with the SPA rewrite and the
+`Cross-Origin-Opener-Policy` header Google sign-in needs.
 
 ```bash
 npm run build      # outputs dist/

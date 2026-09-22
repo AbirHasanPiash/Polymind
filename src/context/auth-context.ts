@@ -1,19 +1,8 @@
 import { createContext, useContext, type Dispatch, type SetStateAction } from "react";
 
-export type Wallet = {
-  id?: string;
-  /** Sent as a string by the API to preserve decimal precision. */
-  credits: number | string;
-};
+import type { Preferences, User } from "../api/types";
 
-export type User = {
-  id: string;
-  email: string;
-  full_name?: string | null;
-  is_active?: boolean;
-  is_superuser: boolean;
-  wallet?: Wallet | null;
-};
+export type { User } from "../api/types";
 
 export type AuthContextValue = {
   user: User | null;
@@ -25,6 +14,8 @@ export type AuthContextValue = {
   login: (token: string) => void;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  /** Persist a partial preference change and update the local user. */
+  updatePreferences: (patch: Partial<Preferences>) => Promise<void>;
   setUser: Dispatch<SetStateAction<User | null>>;
 };
 

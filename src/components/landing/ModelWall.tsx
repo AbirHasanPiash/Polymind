@@ -1,11 +1,8 @@
 import { useModelCatalogue } from "../../hooks/useModelCatalogue";
+import { TIER_META } from "../../lib/models";
 import { cn } from "../../lib/utils";
-
-const PROVIDER_DOT: Record<string, string> = {
-  openai: "bg-emerald-400",
-  anthropic: "bg-orange-400",
-  google: "bg-sky-400",
-};
+import { ProviderDot } from "../brand/ProviderMark";
+import { Badge } from "../ui/primitives";
 
 /**
  * Scrolling wall of every model the platform can serve.
@@ -34,18 +31,13 @@ export function ModelWall() {
           {[...row, ...row].map((model, copyIndex) => (
             <div
               key={`${model.id}-${copyIndex}`}
-              className="landing-panel flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 backdrop-blur-sm"
+              className="surface-card flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5"
             >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 shrink-0 rounded-full",
-                  PROVIDER_DOT[model.provider] ?? "bg-slate-400",
-                )}
-              />
-              <span className="font-mono text-[13px] font-medium text-slate-800 dark:text-slate-100">
-                {model.id}
-              </span>
-              <span className="hidden text-xs text-slate-500 sm:inline dark:text-slate-400">
+              <ProviderDot provider={model.provider} />
+              <span className="text-[13px] font-semibold text-fg">{model.display_name}</span>
+              <Badge className={TIER_META[model.tier].className}>{TIER_META[model.tier].label}</Badge>
+              {model.badge && <Badge tone={model.badge === "new" ? "accent" : "warning"}>{model.badge}</Badge>}
+              <span className="hidden max-w-[16rem] truncate text-xs text-fg-muted sm:inline">
                 {model.description}
               </span>
             </div>

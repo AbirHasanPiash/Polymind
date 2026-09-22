@@ -35,7 +35,7 @@ type ThemeProviderProps = {
  * happens in a layout effect so a switch is committed before the browser
  * paints — with a passive effect the old palette shows for one frame.
  */
-export function ThemeProvider({ children, defaultTheme = "dark" }: ThemeProviderProps) {
+export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => readStoredTheme(defaultTheme));
   // Only the OS preference is state; what is on screen is derived from it, so
   // the two can never disagree.

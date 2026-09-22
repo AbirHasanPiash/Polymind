@@ -1,201 +1,330 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import useSWR from 'swr';
-import { 
-  ChatBubbleLeftRightIcon, 
-  ClockIcon, 
-  ChevronRightIcon, 
-  CalendarDaysIcon,
-  TrashIcon
-} from '@heroicons/react/24/outline';
-import api, { fetcher, getErrorMessage } from '../api/client';
-import DeleteModal from '../components/DeleteModal';
-import { useToast } from '../context/toast-context';
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import useSWR from "swr";
+import { Clock, Columns2, MessageSquareText, Pencil, Pin, PinOff, Plus, Search, Trash2, X } from "lucide-react";
 
-// Types
-type ChatHistoryItem = {
-  id: string;
-  title: string;
-  created_at: string;
-};
+import { fetcher, getErrorMessage } from "../api/client";
+import type { ChatSummary, SearchHit } from "../api/types";
+import { Button } from "../components/ui/button";
+import { ConfirmDialog, Dialog, DialogContent, DialogFooter, Tooltip } from "../components/ui/overlays";
+import { Badge, Card, CardBody, EmptyState, Input, Page, PageHeader, Skeleton } from "../components/ui/primitives";
+import { useChatReset } from "../context/chat-reset-context";
+import { useToast } from "../context/toast-context";
+import { useChats } from "../hooks/useChats";
+import { dayBucket, formatRelativeTime } from "../lib/format";
+import { cn } from "../lib/utils";
+
+const BUCKET_ORDER = ["Pinned", "Today", "Yesterday", "Previous 7 days", "Previous 30 days", "Older"];
+const SEARCH_DEBOUNCE_MS = 300;
+const MIN_QUERY = 2;
+
+/** Emphasise the matched term inside a snippet. */
+function Highlight({ text, term }: { text: string; term: string }) {
+  if (!term) return <>{text}</>;
+  const index = text.toLowerCase().indexOf(term.toLowerCase());
+  if (index < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, index)}
+      <mark className="rounded bg-accent-soft px-0.5 text-accent">{text.slice(index, index + term.length)}</mark>
+      {text.slice(index + term.length)}
+    </>
+  );
+}
 
 export default function HistoryPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { triggerReset } = useChatReset();
+  const { chats, isLoading, error, rename, setPinned, remove } = useChats();
 
-  // Destructure mutate to allow manual updates
-  const { data: chats, error, isLoading, mutate } = useSWR<ChatHistoryItem[]>('/chat/list', fetcher);
+  const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [renaming, setRenaming] = useState<ChatSummary | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleting, setDeleting] = useState<ChatSummary | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  // Delete State
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(query.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
 
-  // Delete Handlers
-  const promptDelete = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setItemToDelete(id);
-    setDeleteModalOpen(true);
+  const searching = debounced.length >= MIN_QUERY;
+  const { data: hits, isLoading: searchLoading } = useSWR<SearchHit[]>(
+    searching ? `/chat/search?q=${encodeURIComponent(debounced)}` : null,
+    fetcher,
+    { keepPreviousData: true },
+  );
+
+  const grouped = useMemo(() => {
+    const buckets = new Map<string, ChatSummary[]>();
+    for (const chat of chats) {
+      const key = chat.pinned ? "Pinned" : dayBucket(chat.updated_at ?? chat.created_at);
+      buckets.set(key, [...(buckets.get(key) ?? []), chat]);
+    }
+    return BUCKET_ORDER.filter((key) => buckets.has(key)).map((key) => ({ key, chats: buckets.get(key)! }));
+  }, [chats]);
+
+  const startNewChat = () => {
+    triggerReset();
+    navigate("/dashboard");
   };
 
-  const confirmDelete = async () => {
-    if (!itemToDelete) return;
-
-    setIsDeleting(true);
-
-    // Remove locally immediately
-    const previousData = chats;
-    mutate(
-      (currentData) => currentData?.filter((chat) => chat.id !== itemToDelete),
-      false // Revalidate = false to prevent immediate refetch flicker
-    );
-
+  const submitRename = async () => {
+    if (!renaming) return;
+    const title = renameValue.trim();
+    if (!title) return;
+    setBusy(true);
     try {
-      await api.delete(`/chat/${itemToDelete}`);
-      void mutate();
-      setDeleteModalOpen(false);
-      setItemToDelete(null);
-      toast.success('Conversation deleted');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete this conversation'));
-      void mutate(previousData, false);
+      await rename(renaming.id, title);
+      setRenaming(null);
+      toast.success("Conversation renamed");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Could not rename the conversation"));
     } finally {
-      setIsDeleting(false);
+      setBusy(false);
     }
   };
 
-  // Group chats by Date
-  const groupedChats = chats?.reduce((acc, chat) => {
-    const date = new Date(chat.created_at).toLocaleDateString(undefined, {
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric'
-    });
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(chat);
-    return acc;
-  }, {} as Record<string, ChatHistoryItem[]>);
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await remove(deleting.id);
+      setDeleting(null);
+      toast.success("Conversation deleted");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Could not delete the conversation"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const togglePin = async (chat: ChatSummary) => {
+    try {
+      await setPinned(chat.id, !chat.pinned);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Could not update the conversation"));
+    }
+  };
 
   return (
-    <div className="p-6 h-full flex flex-col bg-blue-50 dark:bg-[#0a0b0f] overflow-y-auto custom-scrollbar transition-colors duration-300">
-      
-      <div className="max-w-4xl mx-auto w-full">
-        {/* Delete Confirmation Modal */}
-        <DeleteModal 
-          isOpen={deleteModalOpen}
-          onClose={() => { if(!isDeleting) setDeleteModalOpen(false); }}
-          onConfirm={confirmDelete}
-          title="Delete Conversation"
-          message="Are you sure you want to delete this conversation? All messages will be permanently removed."
-          isDeleting={isDeleting}
+    <Page>
+      <PageHeader
+        eyebrow="Account"
+        title="History"
+        description="Every conversation you have had, and a search across all of their messages."
+        actions={
+          <Button onClick={startNewChat} size="sm">
+            <Plus />
+            New chat
+          </Button>
+        }
+      />
+
+      {/* Search */}
+      <div className="relative mt-6">
+        <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search your messages and titles…"
+          aria-label="Search conversations"
+          className="h-11 pl-10 pr-10"
         />
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <ClockIcon className="w-8 h-8 text-blue-600 dark:text-blue-500" />
-            Chat History
-          </h1>
-          <div className="text-sm font-medium text-slate-500 dark:text-gray-500">
-              {chats?.length || 0} Conversations
-          </div>
-        </div>
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="space-y-4 animate-pulse">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-20 bg-white dark:bg-gray-800/50 rounded-xl border border-slate-200 dark:border-gray-800" />
-            ))}
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-center">
-            Failed to load history. Please try refreshing.
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && chats && chats.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-500 dark:text-gray-500">
-            <div className="w-20 h-20 bg-white dark:bg-gray-800/50 rounded-full flex items-center justify-center mb-6 shadow-sm dark:shadow-none border border-slate-200 dark:border-gray-800">
-              <ChatBubbleLeftRightIcon className="w-10 h-10 opacity-50 text-slate-400 dark:text-gray-400" />
-            </div>
-            <h3 className="text-xl font-medium text-slate-700 dark:text-gray-300 mb-2">No history yet</h3>
-            <p className="mb-6">Start your first conversation to see it here.</p>
-            <button 
-              onClick={() => navigate('/dashboard')}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-lg shadow-blue-500/20"
-            >
-              Start New Chat
-            </button>
-          </div>
-        )}
-
-        {/* Chat List */}
-        {!isLoading && groupedChats && (
-          <div className="space-y-8 pb-10">
-            {Object.entries(groupedChats).map(([date, items]) => (
-              <div key={date}>
-                {/* Sticky Date Header */}
-                <div className="flex items-center gap-2 mb-4 text-xs font-semibold text-slate-500 dark:text-gray-500 uppercase tracking-wider sticky top-0 bg-blue-50 dark:bg-[#0a0b0f] py-2 z-10 transition-colors duration-300">
-                  <CalendarDaysIcon className="w-4 h-4" />
-                  {date}
-                </div>
-                
-                <div className="flex flex-col gap-3">
-                  {items.map((chat) => (
-                    <div
-                      key={chat.id}
-                      onClick={() => navigate(`/dashboard/chat/${chat.id}`)}
-                      className="group relative flex items-center justify-between p-4 bg-white dark:bg-[#1a1d26] hover:bg-blue-100 dark:hover:bg-[#20242f] border border-slate-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-500/30 rounded-xl cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
-                    >
-                      <div className="flex items-center gap-4 min-w-0 flex-1">
-                        {/* Icon */}
-                        <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform flex-shrink-0 border border-blue-100 dark:border-transparent">
-                          <ChatBubbleLeftRightIcon className="w-5 h-5" />
-                        </div>
-
-                        {/* Content */}
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-slate-700 dark:text-gray-200 font-medium truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
-                            {chat.title || "Untitled Conversation"}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-slate-500 dark:text-gray-500 bg-slate-100 dark:bg-gray-800/50 px-2 py-0.5 rounded border border-slate-200 dark:border-gray-700/50">
-                               {new Date(chat.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 pl-4">
-                          {/* Delete Button (Visible on hover) */}
-                          <button
-                              onClick={(e) => promptDelete(e, chat.id)}
-                              className="p-2 text-slate-400 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                              title="Delete Conversation"
-                          >
-                              <TrashIcon className="w-5 h-5" />
-                          </button>
-
-                          {/* Arrow */}
-                          <div className="text-slate-400 dark:text-gray-600 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              <ChevronRightIcon className="w-5 h-5" />
-                          </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="absolute top-1/2 right-2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-fg-subtle hover:bg-surface-2 hover:text-fg"
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
         )}
       </div>
-    </div>
+
+      {searching ? (
+        <Card className="mt-4">
+          <CardBody className="pt-4">
+            <p className="mb-3 text-xs font-semibold tracking-wider text-fg-subtle uppercase">
+              {searchLoading && !hits ? "Searching…" : `${hits?.length ?? 0} ${hits?.length === 1 ? "match" : "matches"}`}
+            </p>
+            {searchLoading && !hits ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={index} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : hits && hits.length > 0 ? (
+              <ul className="divide-y divide-line">
+                {hits.map((hit) => (
+                  <li key={hit.message_id}>
+                    <Link
+                      to={`/dashboard/chat/${hit.chat_id}`}
+                      className="-mx-2 flex flex-col gap-1 rounded-lg px-2 py-3 hover:bg-surface-2"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-sm font-medium text-fg">{hit.chat_title || "Untitled"}</span>
+                        <Badge tone={hit.role === "user" ? "accent" : "neutral"}>{hit.role === "user" ? "You" : "Assistant"}</Badge>
+                        <span className="ml-auto text-xs text-fg-subtle">{formatRelativeTime(hit.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-fg-muted line-clamp-2">
+                        <Highlight text={hit.snippet} term={debounced} />
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState className="py-8" icon={<Search className="h-6 w-6" />} title="No matches" description={`Nothing in your conversations mentions “${debounced}”.`} />
+            )}
+          </CardBody>
+        </Card>
+      ) : (
+        <div className="mt-6">
+          {error && (
+            <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">
+              Could not load your conversations. Please refresh the page.
+            </div>
+          )}
+
+          {isLoading && chats.length === 0 ? (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Skeleton key={index} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : chats.length === 0 ? (
+            <EmptyState
+              icon={<MessageSquareText className="h-6 w-6" />}
+              title="No conversations yet"
+              description="Start your first chat and it will be kept here for you."
+              action={
+                <Button onClick={startNewChat}>
+                  <Plus />
+                  Start a chat
+                </Button>
+              }
+            />
+          ) : (
+            <div className="space-y-8">
+              {grouped.map((group) => (
+                <section key={group.key}>
+                  <h2 className="mb-2 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wider text-fg-subtle uppercase">
+                    {group.key === "Pinned" ? <Pin className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                    {group.key}
+                    <span className="font-normal text-fg-subtle">· {group.chats.length}</span>
+                  </h2>
+                  <ul className="space-y-2">
+                    {group.chats.map((chat) => (
+                      <li key={chat.id}>
+                        <Card className="group flex items-center gap-3 px-3 py-2.5 transition hover:border-line-strong sm:px-4">
+                          <Link to={`/dashboard/chat/${chat.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                            <span
+                              className={cn(
+                                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                                chat.mode === "arena" ? "bg-brand-3/10 text-brand-3" : "bg-accent-soft text-accent",
+                              )}
+                            >
+                              {chat.mode === "arena" ? <Columns2 className="h-5 w-5" /> : <MessageSquareText className="h-5 w-5" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-2">
+                                <span className="truncate text-sm font-medium text-fg group-hover:text-accent">{chat.title || "Untitled"}</span>
+                                {chat.mode === "arena" && <Badge className="hidden bg-brand-3/15 text-brand-3 sm:inline-flex">Arena</Badge>}
+                              </span>
+                              <span className="mt-0.5 block text-xs text-fg-subtle">
+                                {chat.message_count} {chat.message_count === 1 ? "message" : "messages"} · {formatRelativeTime(chat.updated_at ?? chat.created_at)}
+                              </span>
+                            </span>
+                          </Link>
+
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            <Tooltip content={chat.pinned ? "Unpin" : "Pin"}>
+                              <button
+                                type="button"
+                                onClick={() => void togglePin(chat)}
+                                className={cn(
+                                  "flex h-10 w-10 items-center justify-center rounded-lg hover:bg-surface-2",
+                                  chat.pinned ? "text-accent" : "text-fg-subtle hover:text-fg",
+                                )}
+                                aria-label={chat.pinned ? "Unpin conversation" : "Pin conversation"}
+                              >
+                                {chat.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Rename">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRenaming(chat);
+                                  setRenameValue(chat.title ?? "");
+                                }}
+                                className="flex h-10 w-10 items-center justify-center rounded-lg text-fg-subtle hover:bg-surface-2 hover:text-fg"
+                                aria-label="Rename conversation"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Delete">
+                              <button
+                                type="button"
+                                onClick={() => setDeleting(chat)}
+                                className="flex h-10 w-10 items-center justify-center rounded-lg text-fg-subtle hover:bg-danger/10 hover:text-danger"
+                                aria-label="Delete conversation"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </Tooltip>
+                          </div>
+                        </Card>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Dialog open={renaming !== null} onOpenChange={(open) => !open && !busy && setRenaming(null)}>
+        <DialogContent title="Rename conversation" size="sm">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitRename();
+            }}
+          >
+            <Input
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              maxLength={120}
+              autoFocus
+              aria-label="Conversation title"
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setRenaming(null)} disabled={busy}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={busy} disabled={!renameValue.trim()}>
+                Save
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Delete this conversation?"
+        description={`“${deleting?.title || "Untitled"}” and all of its messages will be permanently removed.`}
+        loading={busy}
+        onConfirm={confirmDelete}
+      />
+    </Page>
   );
 }

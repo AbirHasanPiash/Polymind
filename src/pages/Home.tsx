@@ -1,11 +1,14 @@
 import {
   ArrowRight,
   AudioLines,
+  BarChart3,
   Check,
   Clapperboard,
+  Columns2,
+  Command,
   ImageIcon,
+  Link2,
   MessageSquareText,
-  RotateCcw,
   Route,
   Sparkles,
   Wallet,
@@ -14,27 +17,32 @@ import {
 import { useEffect, useRef, type PointerEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-import { BrandMark } from "../components/landing/BrandMark";
+import { BrandMark } from "../components/brand/BrandMark";
+import { ProviderMark } from "../components/brand/ProviderMark";
 import { HeroConsole } from "../components/landing/HeroConsole";
 import { LandingNav } from "../components/landing/LandingNav";
 import { ModelWall } from "../components/landing/ModelWall";
 import { Reveal } from "../components/landing/Reveal";
+import { Kbd } from "../components/ui/primitives";
 import { useAuth } from "../context/auth-context";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useModelCatalogue } from "../hooks/useModelCatalogue";
 import { useScrolledPast } from "../hooks/useScrolledPast";
+import { IS_MAC } from "../hooks/useHotkeys";
+import { displayName, guessProvider } from "../lib/models";
 import { cn } from "../lib/utils";
 
-/* The router's own defaults, quoted so the page describes what the backend
-   actually does rather than a marketing approximation of it. */
-const ROUTES = [
-  { intent: "coding", model: "claude-4.5-opus" },
-  { intent: "reasoning", model: "gpt-5.2-pro" },
-  { intent: "long context", model: "gemini-2.5-pro" },
-  { intent: "short & fast", model: "gemini-3-flash-preview" },
+/** Intents the router recognises, in the order the routes panel lists them. */
+const ROUTE_INTENTS: { key: string; label: string }[] = [
+  { key: "coding", label: "coding" },
+  { key: "reasoning", label: "reasoning" },
+  { key: "long_context", label: "long context" },
+  { key: "creative", label: "writing" },
+  { key: "fast", label: "short & fast" },
+  { key: "default", label: "everything else" },
 ];
 
-/** Four studios: chat, image, speech, avatar video. */
+/** Four studios: chat, image, voice, avatar video. */
 const STUDIO_COUNT = 4;
 
 const WALLET_RULES = [
@@ -42,6 +50,7 @@ const WALLET_RULES = [
   "Pay per token, per image, per character of speech — never per seat.",
   "Credits do not expire and there is no monthly minimum.",
   "A job that fails is refunded automatically.",
+  "Usage analytics show exactly where every credit went.",
 ];
 
 const STEPS = [
@@ -50,18 +59,18 @@ const STEPS = [
     body: "Send a prompt, with files attached if you have them. Nothing to configure first.",
   },
   {
-    title: "It routes",
-    body: "The prompt is scored for intent and matched to the model that suits it — or pin one yourself and it is used verbatim.",
+    title: "It routes — and says why",
+    body: "The prompt is scored for intent and matched to the model that suits it. Every reply carries the reason, or pin a model yourself and it is used verbatim.",
   },
   {
     title: "You pay for what ran",
-    body: "Tokens stream back as they are produced, and the exact cost of the turn is deducted and shown.",
+    body: "Tokens stream back as they are produced, and the exact cost of the turn is deducted and shown under the reply.",
   },
 ];
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
-  const { models, providers } = useModelCatalogue();
+  const { models, providers, catalogue } = useModelCatalogue();
   const { ref: topSentinel, passed: scrolled } = useScrolledPast<HTMLDivElement>();
 
   const primaryHref = isAuthenticated ? "/dashboard" : "/signup";
@@ -76,8 +85,10 @@ export default function Home() {
     { value: "1", label: "wallet" },
   ];
 
+  const flagships = models.filter((model) => model.tier === "flagship").slice(0, 3);
+
   return (
-    <div className="relative min-h-dvh w-full overflow-x-hidden font-sans">
+    <div className="relative min-h-dvh w-full overflow-x-hidden bg-canvas font-sans text-fg">
       <Ambience />
 
       {/* Watched by the nav to know whether the page has moved. It lives in the
@@ -91,29 +102,30 @@ export default function Home() {
         <section className="mx-auto max-w-6xl px-4 pt-28 pb-16 sm:px-6 sm:pt-36 sm:pb-24">
           <div className="mx-auto max-w-3xl text-center">
             <Reveal>
-              <span className="landing-panel inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-medium tracking-wide text-slate-600 backdrop-blur-sm sm:text-xs dark:text-slate-300">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-blue-500" />
+              <span className="surface-card inline-flex max-w-full items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-medium tracking-wide text-fg-muted sm:text-xs">
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
                 </span>
-                GPT-5.2 Pro · Claude 4.5 Opus · Gemini 3 Pro
+                <span className="truncate">
+                  {flagships.length > 0
+                    ? flagships.map((model) => model.display_name).join(" · ")
+                    : "GPT-5.5 · Claude Fable 5.1 · Gemini 3.1 Pro"}
+                </span>
               </span>
             </Reveal>
 
             <Reveal delay={80}>
-              <h1 className="mt-6 text-[2.65rem] leading-[1.04] font-semibold tracking-[-0.04em] text-balance text-slate-900 sm:mt-8 sm:text-6xl lg:text-[4.25rem] dark:text-white">
-                Every frontier model,{" "}
-                <span className="bg-gradient-to-r from-blue-600 via-violet-600 to-pink-600 bg-clip-text text-transparent dark:from-blue-400 dark:via-violet-400 dark:to-pink-400">
-                  one workspace.
-                </span>
+              <h1 className="mt-6 text-[2.65rem] leading-[1.04] font-semibold tracking-[-0.04em] text-balance text-fg sm:mt-8 sm:text-6xl lg:text-[4.25rem]">
+                Every frontier model, <span className="text-gradient">one workspace.</span>
               </h1>
             </Reveal>
 
             <Reveal delay={160}>
-              <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-pretty text-slate-600 sm:mt-6 sm:text-lg dark:text-slate-400">
-                Chat with GPT, Claude and Gemini, then generate images, speech and avatar video —
-                all metered from a single credit wallet. No seats, no subscriptions, no switching
-                tabs.
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-pretty text-fg-muted sm:mt-6 sm:text-lg">
+                Chat with GPT, Claude and Gemini, put them side by side when you cannot decide, then
+                generate images, speech and avatar video — all metered from a single credit wallet.
+                No seats, no subscriptions, no switching tabs.
               </p>
             </Reveal>
 
@@ -121,7 +133,7 @@ export default function Home() {
               <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:mt-10 sm:flex-row">
                 <Link
                   to={primaryHref}
-                  className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 text-[15px] font-semibold text-white shadow-xl shadow-slate-900/20 hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0 sm:w-auto dark:bg-white dark:text-slate-900 dark:shadow-white/10 dark:hover:bg-slate-100"
+                  className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient px-6 text-[15px] font-semibold text-white shadow-lg shadow-accent/25 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 sm:w-auto"
                 >
                   <Zap className="h-4 w-4" />
                   {primaryLabel}
@@ -129,7 +141,7 @@ export default function Home() {
                 </Link>
                 <a
                   href="#routing"
-                  className="landing-panel inline-flex h-12 w-full items-center justify-center rounded-xl px-6 text-[15px] font-semibold text-slate-700 backdrop-blur-sm hover:-translate-y-0.5 sm:w-auto dark:text-slate-200"
+                  className="surface-card inline-flex h-12 w-full items-center justify-center rounded-xl px-6 text-[15px] font-semibold text-fg hover:-translate-y-0.5 hover:border-line-strong sm:w-auto"
                 >
                   See how routing works
                 </a>
@@ -137,7 +149,7 @@ export default function Home() {
             </Reveal>
 
             <Reveal delay={320}>
-              <p className="mt-5 text-xs text-slate-500 dark:text-slate-500">
+              <p className="mt-5 text-xs text-fg-subtle">
                 10 free credits on signup · No card required · Pay only for what you generate
               </p>
             </Reveal>
@@ -150,16 +162,13 @@ export default function Home() {
           <Reveal delay={120}>
             <dl className="mx-auto mt-14 grid max-w-3xl grid-cols-2 gap-3 sm:mt-20 sm:grid-cols-4">
               {stats.map((stat) => (
-                <div
-                  key={stat.label}
-                  className="landing-panel rounded-2xl px-4 py-5 text-center backdrop-blur-sm"
-                >
+                <div key={stat.label} className="surface-card rounded-2xl px-4 py-5 text-center">
                   <dt className="sr-only">{stat.label}</dt>
                   <dd>
-                    <span className="block text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
+                    <span className="block text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
                       {stat.value}
                     </span>
-                    <span className="mt-1 block text-[11px] tracking-widest text-slate-500 uppercase dark:text-slate-500">
+                    <span className="mt-1 block text-[11px] tracking-widest text-fg-subtle uppercase">
                       {stat.label}
                     </span>
                   </dd>
@@ -178,7 +187,7 @@ export default function Home() {
               <SectionLead>
                 This wall is fetched live from the platform's registry — the same source the router
                 reads and the biller charges from. Switch models mid-conversation without losing the
-                thread.
+                thread, or run several at once.
               </SectionLead>
             </Reveal>
           </div>
@@ -189,17 +198,11 @@ export default function Home() {
         </section>
 
         {/* ── Studios ────────────────────────────────────────────────────── */}
-        <section
-          id="studios"
-          aria-labelledby="studios-heading"
-          className="scroll-mt-24 py-16 sm:py-24"
-        >
+        <section id="studios" aria-labelledby="studios-heading" className="scroll-mt-24 py-16 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <Reveal className="mx-auto max-w-2xl text-center">
               <SectionEyebrow>Studios</SectionEyebrow>
-              <SectionHeading id="studios-heading">
-                Four studios. One balance behind them.
-              </SectionHeading>
+              <SectionHeading id="studios-heading">Four studios. One balance behind them.</SectionHeading>
               <SectionLead>
                 Text, pictures, voice and video are separate crafts everywhere else. Here they share
                 an account, a wallet and a history.
@@ -209,84 +212,126 @@ export default function Home() {
             <div className="mt-12 grid gap-4 sm:mt-16 md:grid-cols-6">
               <Reveal className="md:col-span-4">
                 <SpotlightCard className="h-full">
-                  <CardIcon className="bg-blue-500/10 text-blue-500 ring-blue-500/20">
+                  <CardIcon className="bg-accent-soft text-accent">
                     <MessageSquareText className="h-5 w-5" />
                   </CardIcon>
-                  <CardTitle>Chat that picks its own model</CardTitle>
+                  <CardTitle>Chat that picks its own model — and tells you why</CardTitle>
                   <CardBody>
-                    Ask anything and the router reads the intent — code, reasoning, long context or
-                    speed — then sends it to the model that fits. Pin one yourself whenever you would
-                    rather decide. Answers stream token by token over a socket that survives a model
-                    change mid-conversation.
+                    Ask anything and the router reads the intent — code, reasoning, long context,
+                    writing or speed — then sends it to the model that fits and labels the reply with
+                    the reason. Pin one yourself whenever you would rather decide. Set the reasoning
+                    depth per message, edit and resend, regenerate, or have any reply read aloud.
                   </CardBody>
                   <div className="mt-6 flex flex-wrap gap-2">
-                    {["auto", "gpt-5.2", "claude-4.5-sonnet", "gemini-3-flash-preview"].map(
-                      (chip, index) => (
-                        <span
-                          key={chip}
-                          className={cn(
-                            "rounded-lg px-2.5 py-1 font-mono text-[11px]",
-                            index === 0
-                              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                              : "landing-panel text-slate-600 dark:text-slate-300",
-                          )}
-                        >
-                          {chip}
-                        </span>
-                      ),
-                    )}
+                    {["auto", ...models.slice(0, 3).map((model) => model.id)].map((chip, index) => (
+                      <span
+                        key={chip}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-mono text-[11px]",
+                          index === 0
+                            ? "bg-brand-gradient text-white"
+                            : "border border-line bg-surface-2 text-fg-muted",
+                        )}
+                      >
+                        {index === 0 && <Sparkles className="h-3 w-3" />}
+                        {chip}
+                      </span>
+                    ))}
                   </div>
                 </SpotlightCard>
               </Reveal>
 
               <Reveal delay={80} className="md:col-span-2">
                 <SpotlightCard className="h-full">
-                  <CardIcon className="bg-pink-500/10 text-pink-500 ring-pink-500/20">
-                    <ImageIcon className="h-5 w-5" />
+                  <CardIcon className="bg-brand-3/10 text-brand-3">
+                    <Columns2 className="h-5 w-5" />
                   </CardIcon>
-                  <CardTitle>Image studio</CardTitle>
+                  <CardTitle>Arena</CardTitle>
                   <CardBody>
-                    gpt-image-1.5 and DALL·E 3, up to 1536×1024, with reference-image editing when
-                    you need a variation rather than a fresh idea.
+                    Cannot decide between two models? Pick two or three and every reply streams side
+                    by side in the same conversation, each one billed at its own rate.
                   </CardBody>
                 </SpotlightCard>
               </Reveal>
 
               <Reveal delay={40} className="md:col-span-2">
                 <SpotlightCard className="h-full">
-                  <CardIcon className="bg-violet-500/10 text-violet-500 ring-violet-500/20">
+                  <CardIcon className="bg-brand-3/10 text-brand-3">
+                    <ImageIcon className="h-5 w-5" />
+                  </CardIcon>
+                  <CardTitle>Image studio</CardTitle>
+                  <CardBody>
+                    GPT Image 2 and Google's Nano Banana 2 and Pro, up to 4K, with reference-image
+                    editing when you need a variation rather than a fresh idea.
+                  </CardBody>
+                </SpotlightCard>
+              </Reveal>
+
+              <Reveal delay={80} className="md:col-span-2">
+                <SpotlightCard className="h-full">
+                  <CardIcon className="bg-accent-soft text-accent">
                     <AudioLines className="h-5 w-5" />
                   </CardIcon>
-                  <CardTitle>Neural voice</CardTitle>
+                  <CardTitle>Voice studio</CardTitle>
                   <CardBody>
-                    Google Cloud neural voices across dozens of languages — read out any chat reply,
-                    or paste your own script.
+                    Google Cloud and OpenAI voices, from neural narrators to steerable studio voices.
+                    Paste a script, or read any chat reply aloud with one click.
                   </CardBody>
                 </SpotlightCard>
               </Reveal>
 
               <Reveal delay={120} className="md:col-span-2">
                 <SpotlightCard className="h-full">
-                  <CardIcon className="bg-emerald-500/10 text-emerald-500 ring-emerald-500/20">
+                  <CardIcon className="bg-success/10 text-success">
                     <Clapperboard className="h-5 w-5" />
                   </CardIcon>
                   <CardTitle>Avatar video</CardTitle>
                   <CardBody>
-                    Turn a portrait and a script into a lip-synced talking video with D-ID, rendered
-                    in the background and filed in your library.
+                    Turn a portrait and a script into a lip-synced talking video, rendered in the
+                    background and filed in your library.
                   </CardBody>
                 </SpotlightCard>
               </Reveal>
 
-              <Reveal delay={160} className="md:col-span-2">
+              <Reveal delay={40} className="md:col-span-2">
                 <SpotlightCard className="h-full">
-                  <CardIcon className="bg-amber-500/10 text-amber-500 ring-amber-500/20">
-                    <RotateCcw className="h-5 w-5" />
+                  <CardIcon className="bg-info/10 text-info">
+                    <Link2 className="h-5 w-5" />
                   </CardIcon>
-                  <CardTitle>Refunded on failure</CardTitle>
+                  <CardTitle>Share and export</CardTitle>
                   <CardBody>
-                    Media work is charged up front and handed to a worker. If the job fails, the
-                    credits come straight back.
+                    Publish a read-only link to any conversation, or download it as Markdown or JSON.
+                    Revoke a link whenever you like.
+                  </CardBody>
+                </SpotlightCard>
+              </Reveal>
+
+              <Reveal delay={80} className="md:col-span-2">
+                <SpotlightCard className="h-full">
+                  <CardIcon className="bg-info/10 text-info">
+                    <BarChart3 className="h-5 w-5" />
+                  </CardIcon>
+                  <CardTitle>Usage analytics</CardTitle>
+                  <CardBody>
+                    Spend by day, by model and by studio, with the last charges listed. No surprises
+                    at the end of the month, because there is no end of the month.
+                  </CardBody>
+                </SpotlightCard>
+              </Reveal>
+
+              <Reveal delay={120} className="md:col-span-2">
+                <SpotlightCard className="h-full">
+                  <CardIcon className="bg-warning/15 text-warning">
+                    <Command className="h-5 w-5" />
+                  </CardIcon>
+                  <CardTitle>Built for the keyboard</CardTitle>
+                  <CardBody>
+                    <span className="inline-flex items-center gap-1 align-middle">
+                      <Kbd>{IS_MAC ? "⌘" : "Ctrl"}</Kbd>
+                      <Kbd>K</Kbd>
+                    </span>{" "}
+                    opens a command palette for pages, recent chats and models; new chat, model
+                    switching and sending never need the mouse.
                   </CardBody>
                 </SpotlightCard>
               </Reveal>
@@ -295,17 +340,11 @@ export default function Home() {
         </section>
 
         {/* ── Routing ────────────────────────────────────────────────────── */}
-        <section
-          id="routing"
-          aria-labelledby="routing-heading"
-          className="scroll-mt-24 py-16 sm:py-24"
-        >
+        <section id="routing" aria-labelledby="routing-heading" className="scroll-mt-24 py-16 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <Reveal className="mx-auto max-w-2xl text-center">
               <SectionEyebrow>How it works</SectionEyebrow>
-              <SectionHeading id="routing-heading">
-                You type. It routes. You pay for what ran.
-              </SectionHeading>
+              <SectionHeading id="routing-heading">You type. It routes. You pay for what ran.</SectionHeading>
               <SectionLead>
                 Picking the right model for each question is most of the skill in using AI well. The
                 platform does it for you, and shows its work.
@@ -318,20 +357,16 @@ export default function Home() {
                   <Reveal key={step.title} delay={index * 90}>
                     <div className="flex gap-4">
                       <div className="flex flex-col items-center">
-                        <span className="landing-panel flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-mono text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        <span className="surface-card flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-mono text-xs font-semibold text-fg">
                           {index + 1}
                         </span>
                         {index < STEPS.length - 1 && (
-                          <span className="landing-divide mt-2 w-px flex-1 border-l border-dashed" />
+                          <span className="mt-2 w-px flex-1 border-l border-dashed border-line-strong" />
                         )}
                       </div>
                       <div className="pb-2">
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                          {step.title}
-                        </h3>
-                        <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                          {step.body}
-                        </p>
+                        <h3 className="text-base font-semibold text-fg">{step.title}</h3>
+                        <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{step.body}</p>
                       </div>
                     </div>
                   </Reveal>
@@ -339,32 +374,34 @@ export default function Home() {
               </div>
 
               <Reveal delay={120}>
-                <div className="landing-panel-solid h-full rounded-2xl p-5 shadow-[0_2px_4px_rgb(15_23_42_/_0.04),0_24px_64px_-32px_rgb(15_23_42_/_0.3)] sm:p-6 dark:shadow-[0_24px_64px_-32px_rgb(0_0_0_/_0.8)]">
+                <div className="surface-pop h-full rounded-2xl p-5 sm:p-6">
                   <div className="flex items-center gap-2">
-                    <Route className="h-4 w-4 text-blue-500" />
-                    <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
-                      default routes
-                    </p>
+                    <Route className="h-4 w-4 text-accent" />
+                    <p className="font-mono text-xs text-fg-muted">default routes</p>
                   </div>
 
+                  {/* Read from the live catalogue, so the panel can never name a
+                      route the backend does not use. */}
                   <ul className="mt-5 space-y-2.5">
-                    {ROUTES.map((route) => (
-                      <li
-                        key={route.intent}
-                        className="landing-divide flex flex-wrap items-center gap-x-3 gap-y-1 border-b pb-2.5 font-mono text-[12px] last:border-b-0 sm:text-[13px]"
-                      >
-                        <span className="w-28 shrink-0 text-slate-500 dark:text-slate-400">
-                          {route.intent}
-                        </span>
-                        <span className="text-slate-400 dark:text-slate-600">→</span>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {route.model}
-                        </span>
-                      </li>
-                    ))}
+                    {ROUTE_INTENTS.filter((intent) => catalogue.routing[intent.key]).map((intent) => {
+                      const id = catalogue.routing[intent.key];
+                      return (
+                        <li
+                          key={intent.key}
+                          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line pb-2.5 font-mono text-[12px] last:border-b-0 sm:text-[13px]"
+                        >
+                          <span className="w-28 shrink-0 text-fg-muted">{intent.label}</span>
+                          <span className="text-fg-subtle">→</span>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-fg">
+                            <ProviderMark provider={guessProvider(id)} size="xs" />
+                            {displayName(id, models)}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
 
-                  <p className="mt-5 text-xs leading-relaxed text-slate-500 dark:text-slate-500">
+                  <p className="mt-5 text-xs leading-relaxed text-fg-subtle">
                     Prices come from the same registry as the routes, so a turn can never be served
                     by one model and billed at another's rate.
                   </p>
@@ -375,11 +412,7 @@ export default function Home() {
         </section>
 
         {/* ── Credits ────────────────────────────────────────────────────── */}
-        <section
-          id="credits"
-          aria-labelledby="credits-heading"
-          className="scroll-mt-24 py-16 sm:py-24"
-        >
+        <section id="credits" aria-labelledby="credits-heading" className="scroll-mt-24 py-16 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
               <Reveal>
@@ -395,19 +428,17 @@ export default function Home() {
                 <ul className="mt-8 space-y-3.5">
                   {WALLET_RULES.map((rule) => (
                     <li key={rule} className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-500 ring-1 ring-emerald-500/25 ring-inset">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success/10 text-success ring-1 ring-success/25 ring-inset">
                         <Check className="h-3 w-3" strokeWidth={3} />
                       </span>
-                      <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                        {rule}
-                      </span>
+                      <span className="text-sm leading-relaxed text-fg-muted">{rule}</span>
                     </li>
                   ))}
                 </ul>
 
                 <Link
                   to={isAuthenticated ? "/dashboard/billing" : "/signup"}
-                  className="group mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:shadow-white/10 dark:hover:bg-slate-100"
+                  className="group mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-accent-fg shadow-sm hover:-translate-y-0.5 hover:bg-accent-strong"
                 >
                   {isAuthenticated ? "Top up credits" : "Claim 10 free credits"}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -424,24 +455,24 @@ export default function Home() {
         {/* ── Closing call to action ─────────────────────────────────────── */}
         <section className="px-4 pb-20 sm:px-6 sm:pb-28">
           <Reveal className="mx-auto max-w-4xl">
-            <div className="landing-panel-solid relative overflow-hidden rounded-3xl px-6 py-14 text-center sm:px-12 sm:py-20">
+            <div className="surface-pop relative overflow-hidden rounded-3xl px-6 py-14 text-center sm:px-12 sm:py-20">
               <div
                 aria-hidden="true"
                 className="landing-glow-1 pointer-events-none absolute -top-32 left-1/2 h-96 w-[42rem] -translate-x-1/2"
               />
               <div className="relative">
-                <Sparkles className="mx-auto h-6 w-6 text-blue-500" />
-                <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-balance text-slate-900 sm:text-4xl dark:text-white">
+                <BrandMark className="mx-auto h-10 w-10 shadow-lg shadow-accent/25" />
+                <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-balance text-fg sm:text-4xl">
                   Bring every model into one workspace.
                 </h2>
-                <p className="mx-auto mt-4 max-w-lg text-sm text-pretty text-slate-600 sm:text-base dark:text-slate-400">
-                  Ten credits are waiting in your account. That is a few hundred fast replies, or
+                <p className="mx-auto mt-4 max-w-lg text-sm text-pretty text-fg-muted sm:text-base">
+                  Ten credits are waiting in your account. That is a few hundred quick replies, or
                   your first batch of images.
                 </p>
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                   <Link
                     to={primaryHref}
-                    className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 text-[15px] font-semibold text-white shadow-xl shadow-slate-900/20 hover:-translate-y-0.5 hover:bg-slate-800 sm:w-auto dark:bg-white dark:text-slate-900 dark:shadow-white/10 dark:hover:bg-slate-100"
+                    className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient px-6 text-[15px] font-semibold text-white shadow-lg shadow-accent/25 hover:-translate-y-0.5 hover:opacity-95 sm:w-auto"
                   >
                     {primaryLabel}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -449,7 +480,7 @@ export default function Home() {
                   {!isAuthenticated && (
                     <Link
                       to="/login"
-                      className="landing-panel inline-flex h-12 w-full items-center justify-center rounded-xl px-6 text-[15px] font-semibold text-slate-700 backdrop-blur-sm hover:-translate-y-0.5 sm:w-auto dark:text-slate-200"
+                      className="surface-card inline-flex h-12 w-full items-center justify-center rounded-xl px-6 text-[15px] font-semibold text-fg hover:-translate-y-0.5 hover:border-line-strong sm:w-auto"
                     >
                       I already have an account
                     </Link>
@@ -461,39 +492,29 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="landing-divide border-t">
+      <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-10 sm:flex-row sm:justify-between sm:px-6">
           <div className="flex items-center gap-2.5">
             <BrandMark className="h-7 w-7" />
-            <span className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">
-              MultiAIModel
-            </span>
+            <span className="text-sm font-semibold tracking-tight text-fg">Polymind</span>
           </div>
 
           <nav aria-label="Footer" className="flex items-center gap-6 text-sm">
-            <a
-              href="#studios"
-              className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-            >
+            <a href="#studios" className="text-fg-muted hover:text-fg">
               Studios
             </a>
-            <a
-              href="#credits"
-              className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-            >
+            <a href="#models" className="text-fg-muted hover:text-fg">
+              Models
+            </a>
+            <a href="#credits" className="text-fg-muted hover:text-fg">
               Credits
             </a>
-            <Link
-              to={isAuthenticated ? "/dashboard" : "/login"}
-              className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-            >
+            <Link to={isAuthenticated ? "/dashboard" : "/login"} className="text-fg-muted hover:text-fg">
               {isAuthenticated ? "Dashboard" : "Sign in"}
             </Link>
           </nav>
 
-          <p className="text-xs text-slate-500 dark:text-slate-500">
-            © {new Date().getFullYear()} MultiAIModel. All rights reserved.
-          </p>
+          <p className="text-xs text-fg-subtle">© {new Date().getFullYear()} Polymind. All rights reserved.</p>
         </div>
       </footer>
     </div>
@@ -503,29 +524,25 @@ export default function Home() {
 /* ── Page furniture ──────────────────────────────────────────────────────── */
 
 /**
- * Ambient background: canvas, grid, three drifting colour fields and a film
- * grain. Fixed rather than per-section, so the light stays put while the
- * content scrolls through it.
+ * Ambient background: grid and three drifting colour fields. Fixed rather than
+ * per-section, so the light stays put while the content scrolls through it.
+ * The glows are radial gradients rather than blurred circles on purpose: an
+ * animated `filter: blur()` re-rasterises a huge layer on every frame, while a
+ * gradient is painted once and only transformed.
  */
 function Ambience() {
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="landing-surface absolute inset-0" />
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-canvas">
       <div className="landing-grid absolute inset-0" />
       <div className="landing-glow-1 animate-aurora-1 absolute -top-[26rem] left-1/2 h-[52rem] w-[68rem] -translate-x-1/2" />
       <div className="landing-glow-2 animate-aurora-2 absolute top-[28%] -left-[20rem] h-[44rem] w-[44rem]" />
       <div className="landing-glow-3 animate-aurora-3 absolute -right-[18rem] bottom-[6%] h-[40rem] w-[40rem]" />
-      <div className="landing-noise absolute inset-0" />
     </div>
   );
 }
 
 function SectionEyebrow({ children }: { children: ReactNode }) {
-  return (
-    <p className="text-[11px] font-semibold tracking-[0.18em] text-blue-600 uppercase dark:text-blue-400">
-      {children}
-    </p>
-  );
+  return <p className="text-[11px] font-semibold tracking-[0.18em] text-accent uppercase">{children}</p>;
 }
 
 function SectionHeading({
@@ -541,7 +558,7 @@ function SectionHeading({
     <h2
       id={id}
       className={cn(
-        "mt-3 text-3xl font-semibold tracking-[-0.03em] text-balance text-slate-900 sm:text-[2.5rem] sm:leading-[1.1] dark:text-white",
+        "mt-3 text-3xl font-semibold tracking-[-0.03em] text-balance text-fg sm:text-[2.5rem] sm:leading-[1.1]",
         align === "center" && "text-center",
       )}
     >
@@ -550,17 +567,11 @@ function SectionHeading({
   );
 }
 
-function SectionLead({
-  children,
-  align = "center",
-}: {
-  children: ReactNode;
-  align?: "center" | "left";
-}) {
+function SectionLead({ children, align = "center" }: { children: ReactNode; align?: "center" | "left" }) {
   return (
     <p
       className={cn(
-        "mt-4 text-sm leading-relaxed text-pretty text-slate-600 sm:text-base dark:text-slate-400",
+        "mt-4 text-sm leading-relaxed text-pretty text-fg-muted sm:text-base",
         align === "center" && "text-center",
       )}
     >
@@ -571,29 +582,16 @@ function SectionLead({
 
 function CardIcon({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div
-      className={cn(
-        "inline-flex h-11 w-11 items-center justify-center rounded-xl ring-1 ring-inset",
-        className,
-      )}
-    >
-      {children}
-    </div>
+    <div className={cn("inline-flex h-11 w-11 items-center justify-center rounded-xl", className)}>{children}</div>
   );
 }
 
 function CardTitle({ children }: { children: ReactNode }) {
-  return (
-    <h3 className="mt-5 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
-      {children}
-    </h3>
-  );
+  return <h3 className="mt-5 text-lg font-semibold tracking-tight text-fg">{children}</h3>;
 }
 
 function CardBody({ children }: { children: ReactNode }) {
-  return (
-    <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{children}</p>
-  );
+  return <p className="mt-2 text-sm leading-relaxed text-fg-muted">{children}</p>;
 }
 
 /**
@@ -641,7 +639,7 @@ function SpotlightCard({ children, className }: { children: ReactNode; className
       onPointerEnter={handleEnter}
       onPointerMove={handleMove}
       className={cn(
-        "group landing-panel relative overflow-hidden rounded-2xl p-6 backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[var(--landing-line-strong)] hover:shadow-[0_24px_48px_-24px_rgb(15_23_42_/_0.25)] dark:hover:shadow-[0_24px_48px_-24px_rgb(0_0_0_/_0.8)]",
+        "group surface-card relative overflow-hidden rounded-2xl p-6 transition duration-300 hover:-translate-y-0.5 hover:border-line-strong",
         className,
       )}
     >
@@ -654,38 +652,35 @@ function SpotlightCard({ children, className }: { children: ReactNode; className
   );
 }
 
-/** The wallet, drawn the way the billing page shows it. */
+/** The wallet, drawn the way the usage page shows it. */
 function WalletCard() {
   const spend = [
-    { label: "Chat", share: "42%", width: "42%", tone: "bg-blue-500" },
-    { label: "Images", share: "28%", width: "28%", tone: "bg-pink-500" },
-    { label: "Voice", share: "19%", width: "19%", tone: "bg-violet-500" },
-    { label: "Video", share: "11%", width: "11%", tone: "bg-emerald-500" },
+    { label: "Chat", share: "42%", width: "42%", tone: "bg-accent" },
+    { label: "Images", share: "28%", width: "28%", tone: "bg-brand-3" },
+    { label: "Voice", share: "19%", width: "19%", tone: "bg-brand-2" },
+    { label: "Video", share: "11%", width: "11%", tone: "bg-success" },
   ];
 
   return (
-    <div className="landing-panel-solid relative overflow-hidden rounded-2xl p-6 shadow-[0_2px_4px_rgb(15_23_42_/_0.04),0_32px_64px_-32px_rgb(15_23_42_/_0.35)] sm:p-8 dark:shadow-[0_32px_80px_-32px_rgb(0_0_0_/_0.9)]">
-      <div
-        aria-hidden="true"
-        className="landing-glow-2 pointer-events-none absolute -top-24 -right-16 h-64 w-64"
-      />
+    <div className="surface-pop relative overflow-hidden rounded-2xl p-6 sm:p-8">
+      <div aria-hidden="true" className="landing-glow-2 pointer-events-none absolute -top-24 -right-16 h-64 w-64" />
 
       <div className="relative">
         <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-xs font-medium tracking-widest text-slate-500 uppercase dark:text-slate-400">
+          <span className="flex items-center gap-2 text-xs font-medium tracking-widest text-fg-muted uppercase">
             <Wallet className="h-4 w-4" />
             Balance
           </span>
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+          <span className="rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success">
             signup bonus
           </span>
         </div>
 
-        <p className="mt-4 font-mono text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl dark:text-white">
+        <p className="mt-4 font-mono text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
           10.000000
-          <span className="ml-2 text-base font-normal text-slate-400 dark:text-slate-500">cr</span>
+          <span className="ml-2 text-base font-normal text-fg-subtle">cr</span>
         </p>
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-500">
+        <p className="mt-2 text-xs text-fg-subtle">
           Metered to six decimal places — you are charged for the tokens that ran, not a rounded-up
           request.
         </p>
@@ -694,17 +689,17 @@ function WalletCard() {
           {spend.map((row) => (
             <div key={row.label}>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600 dark:text-slate-300">{row.label}</span>
-                <span className="font-mono text-slate-400 dark:text-slate-500">{row.share}</span>
+                <span className="text-fg-muted">{row.label}</span>
+                <span className="font-mono text-fg-subtle">{row.share}</span>
               </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-900/5 dark:bg-white/5">
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-3">
                 <div className={cn("h-full rounded-full", row.tone)} style={{ width: row.width }} />
               </div>
             </div>
           ))}
         </div>
 
-        <p className="landing-divide mt-6 border-t pt-4 text-xs text-slate-500 dark:text-slate-500">
+        <p className="mt-6 border-t border-line pt-4 text-xs text-fg-subtle">
           One balance across every studio. Spend it however the week goes.
         </p>
       </div>

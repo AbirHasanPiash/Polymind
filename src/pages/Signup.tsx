@@ -1,21 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowPathIcon, UserIcon } from "@heroicons/react/24/outline";
+import { Mail, UserRound } from "lucide-react";
 
 import api, { getErrorMessage } from "../api/client";
 import AuthCard from "../components/auth/AuthCard";
 import PasswordField from "../components/auth/PasswordField";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/primitives";
 import { useAuth } from "../context/auth-context";
 
 /** Matches the backend's MIN_PASSWORD_LENGTH so both sides agree. */
 const MIN_PASSWORD_LENGTH = 8;
 
-/**
- * Account creation.
- *
- * The backend has exposed POST /auth/signup all along, but the UI had no way to
- * reach it: a new user could only get in through Google.
- */
 export default function Signup() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -64,12 +60,12 @@ export default function Signup() {
   return (
     <AuthCard
       title="Create your account"
-      subtitle="Start with free credits — no card required"
+      subtitle="Start with 10 free credits — no card required."
       error={error}
       footer={
         <>
           Already have an account?{" "}
-          <Link to="/login" className="font-semibold text-blue-600 hover:underline dark:text-blue-400">
+          <Link to="/login" className="font-semibold text-accent hover:underline">
             Sign in
           </Link>
         </>
@@ -80,10 +76,10 @@ export default function Signup() {
           <label htmlFor="full_name" className="sr-only">
             Full name
           </label>
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <UserIcon className="h-5 w-5 text-slate-400 dark:text-gray-500" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5">
+            <UserRound className="h-4 w-4 text-fg-subtle" />
           </div>
-          <input
+          <Input
             id="full_name"
             name="full_name"
             type="text"
@@ -92,7 +88,7 @@ export default function Signup() {
             placeholder="Full name (optional)"
             autoComplete="name"
             maxLength={120}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pr-4 pl-10 text-base text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none sm:text-sm dark:border-slate-800 dark:bg-slate-900/50 dark:text-white dark:placeholder-slate-600"
+            className="h-11 pl-10"
           />
         </div>
 
@@ -100,10 +96,10 @@ export default function Signup() {
           <label htmlFor="email" className="sr-only">
             Email address
           </label>
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <UserIcon className="h-5 w-5 text-slate-400 dark:text-gray-500" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5">
+            <Mail className="h-4 w-4 text-fg-subtle" />
           </div>
-          <input
+          <Input
             id="email"
             name="email"
             type="email"
@@ -112,7 +108,7 @@ export default function Signup() {
             placeholder="Email address"
             autoComplete="email"
             required
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pr-4 pl-10 text-base text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none sm:text-sm dark:border-slate-800 dark:bg-slate-900/50 dark:text-white dark:placeholder-slate-600"
+            className="h-11 pl-10"
           />
         </div>
 
@@ -133,14 +129,13 @@ export default function Signup() {
           autoComplete="new-password"
         />
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 p-3.5 font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
+        <Button type="submit" size="lg" loading={isSubmitting} className="w-full">
           {isSubmitting ? "Creating account…" : "Create account"}
-        </button>
+        </Button>
+
+        <p className="text-center text-xs text-fg-subtle">
+          By continuing you agree to use Polymind responsibly. Credits are only spent on what you generate.
+        </p>
       </form>
     </AuthCard>
   );

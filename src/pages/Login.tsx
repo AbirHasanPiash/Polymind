@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowPathIcon, UserIcon } from "@heroicons/react/24/outline";
+import { Mail } from "lucide-react";
 
 import api, { getErrorMessage } from "../api/client";
 import AuthCard from "../components/auth/AuthCard";
 import PasswordField from "../components/auth/PasswordField";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/primitives";
 import { useAuth } from "../context/auth-context";
 
 type LocationState = { from?: { pathname: string } };
@@ -33,10 +35,7 @@ export default function Login() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const { data } = await api.post<{ access_token: string }>("/auth/login", {
-        email,
-        password,
-      });
+      const { data } = await api.post<{ access_token: string }>("/auth/login", { email, password });
       login(data.access_token);
       navigate(redirectTo, { replace: true });
     } catch (err) {
@@ -51,26 +50,27 @@ export default function Login() {
   return (
     <AuthCard
       title="Welcome back"
-      subtitle="Sign in to access your AI workspace"
+      subtitle="Sign in to your Polymind workspace."
       error={error}
+      redirectTo={redirectTo}
       footer={
         <>
           New here?{" "}
-          <Link to="/signup" className="font-semibold text-blue-600 hover:underline dark:text-blue-400">
+          <Link to="/signup" className="font-semibold text-accent hover:underline">
             Create an account
           </Link>
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate={false}>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="relative">
           <label htmlFor="email" className="sr-only">
             Email address
           </label>
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <UserIcon className="h-5 w-5 text-slate-400 dark:text-gray-500" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5">
+            <Mail className="h-4 w-4 text-fg-subtle" />
           </div>
-          <input
+          <Input
             id="email"
             name="email"
             type="email"
@@ -79,21 +79,22 @@ export default function Login() {
             placeholder="Email address"
             autoComplete="email"
             required
-            // text-base on mobile keeps iOS Safari from zooming in on focus.
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pr-4 pl-10 text-base text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none sm:text-sm dark:border-slate-800 dark:bg-slate-900/50 dark:text-white dark:placeholder-slate-600"
+            className="h-11 pl-10"
           />
         </div>
 
-        <PasswordField id="password" value={password} onChange={setPassword} />
+        <div className="space-y-2">
+          <PasswordField id="password" value={password} onChange={setPassword} />
+          <div className="flex justify-end">
+            <Link to="/forgot-password" className="text-xs font-medium text-accent hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+        </div>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 p-3.5 font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
-          {isSubmitting ? "Signing in…" : "Sign in with email"}
-        </button>
+        <Button type="submit" size="lg" loading={isSubmitting} className="w-full">
+          {isSubmitting ? "Signing in…" : "Sign in"}
+        </Button>
       </form>
     </AuthCard>
   );

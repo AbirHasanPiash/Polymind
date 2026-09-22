@@ -2,8 +2,8 @@
  * Single axios instance for the whole app.
  *
  * Responsibilities kept in one place: attaching the token, turning backend
- * error payloads into readable strings, and signing the user out exactly once
- * when the session expires.
+ * error payloads into readable strings, signing the user out exactly once when
+ * the session expires, and refreshing the token while the app is in use.
  */
 
 import axios, { AxiosError, type AxiosInstance } from "axios";
@@ -18,12 +18,32 @@ export const UNAUTHORIZED_EVENT = "auth:unauthorized";
 const REQUEST_TIMEOUT_MS = 30_000;
 
 export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export function setStoredToken(token: string | null): void {
-  if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  else localStorage.removeItem(TOKEN_STORAGE_KEY);
+  try {
+    if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    else localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable (private mode); the session then lasts one page load.
+  }
+}
+
+/** Seconds until the token expires, or null when it cannot be read. */
+export function tokenSecondsRemaining(token: string | null): number | null {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    if (typeof payload.exp !== "number") return null;
+    return payload.exp - Math.floor(Date.now() / 1000);
+  } catch {
+    return null;
+  }
 }
 
 const api: AxiosInstance = axios.create({
@@ -52,7 +72,7 @@ api.interceptors.response.use(
   },
 );
 
-/** Shared SWR fetcher — every page used to define its own copy. */
+/** Shared SWR fetcher. */
 export const fetcher = <T,>(url: string): Promise<T> => api.get<T>(url).then((res) => res.data);
 
 type BackendError = {

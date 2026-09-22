@@ -1,159 +1,210 @@
-import { memo } from "react";
-import { CheckIcon, CpuChipIcon, DocumentDuplicateIcon, PaperClipIcon } from "@heroicons/react/24/solid";
+import { memo, useState } from "react";
+import { AlertTriangle, Check, Copy, FileText, ImageIcon, Pencil, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
-import { formatBytes } from "../../lib/format";
+import type { ApiModel } from "../../api/types";
+import { formatBytes, formatCost, formatDuration } from "../../lib/format";
+import { INTENT_LABELS, displayName, guessProvider } from "../../lib/models";
 import { cn } from "../../lib/utils";
+import { ProviderMark } from "../brand/ProviderMark";
+import { Tooltip } from "../ui/overlays";
+import { Badge } from "../ui/primitives";
 import { Markdown } from "./Markdown";
-import type { ChatAttachment, ChatMessage } from "./types";
+import type { UIMessage } from "./types";
 
-type MessageBubbleProps = {
-  message: ChatMessage;
-  isCopied: boolean;
+export type BubbleActions = {
   onCopy: (text: string, id: string) => void;
+  onRegenerate?: (message: UIMessage) => void;
+  onEdit?: (message: UIMessage) => void;
+  onReadAloud?: (message: UIMessage) => void;
+  readAloudState?: { id: string | null; state: "idle" | "loading" | "playing" };
 };
 
-/** Icon and palette per attachment kind. Pure lookup, no hooks. */
-function attachmentStyle(type: string, name: string) {
-  const lower = name.toLowerCase();
-  if (type.startsWith("image/") || /\.(jpe?g|png|gif|webp|svg|bmp|ico)$/i.test(lower))
-    return { icon: "🖼️", tint: "border-pink-200 dark:border-pink-400/40" };
-  if (type === "application/pdf" || lower.endsWith(".pdf"))
-    return { icon: "📄", tint: "border-red-200 dark:border-red-400/40" };
-  if (type.includes("document") || /\.(docx?|txt|rtf)$/i.test(lower))
-    return { icon: "📝", tint: "border-blue-200 dark:border-blue-400/40" };
-  if (type.includes("spreadsheet") || /\.(xlsx?|csv)$/i.test(lower))
-    return { icon: "📊", tint: "border-green-200 dark:border-green-400/40" };
-  if (/\.(jsx?|tsx?|py|java|cpp|c|html|css|json|xml|ya?ml|sh)$/i.test(lower))
-    return { icon: "💻", tint: "border-slate-200 dark:border-slate-400/40" };
-  return { icon: "📎", tint: "border-gray-200 dark:border-gray-400/40" };
+type Props = {
+  message: UIMessage;
+  models: ApiModel[];
+  isCopied: boolean;
+  showCosts: boolean;
+  isLast: boolean;
+  actions: BubbleActions;
+  /** Inside an arena row the bubble fills its column. */
+  column?: boolean;
+};
+
+function ActionButton({
+  label,
+  onClick,
+  children,
+  active = false,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  active?: boolean;
+}) {
+  return (
+    <Tooltip content={label}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={cn("rounded-md p-1.5 text-fg-subtle hover:bg-surface-2 hover:text-fg", active && "text-accent")}
+      >
+        {children}
+      </button>
+    </Tooltip>
+  );
 }
 
-function AttachmentList({ attachments }: { attachments: ChatAttachment[] }) {
+function UserBubble({ message, isCopied, actions }: { message: UIMessage; isCopied: boolean; actions: BubbleActions }) {
   return (
-    <div className="space-y-2 pt-2">
-      <div className="flex items-center gap-1.5 text-[10px] font-medium text-blue-100 sm:text-xs">
-        <PaperClipIcon className="h-3 w-3" />
-        <span>
-          {attachments.length} {attachments.length === 1 ? "attachment" : "attachments"}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {attachments.map((file, index) => {
-          const { icon, tint } = attachmentStyle(file.type, file.name);
-          return (
-            <div
-              key={`${file.name}-${index}`}
-              className={cn(
-                "flex min-w-0 items-center gap-2 rounded-lg border bg-white/15 px-3 py-2 backdrop-blur-sm",
-                tint,
-              )}
-            >
-              <span className="text-lg" aria-hidden="true">
-                {icon}
-              </span>
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-xs font-semibold text-white/95">{file.name}</span>
-                <span className="text-[10px] font-medium text-white/70">
-                  {formatBytes(file.size)}
+    <div className="group flex w-full justify-end animate-rise-in">
+      <div className="flex max-w-[88%] flex-col items-end gap-1 sm:max-w-[78%]">
+        <div className="rounded-2xl rounded-br-md bg-accent-soft px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap break-words text-fg">
+          {message.content}
+          {message.attachments && message.attachments.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {message.attachments.map((file, index) => (
+                <span key={`${file.name}-${index}`} className="flex items-center gap-1.5 rounded-lg bg-surface/70 px-2 py-1 text-xs text-fg-muted">
+                  {file.type.startsWith("image/") ? <ImageIcon className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                  <span className="max-w-[12rem] truncate">{file.name}</span>
+                  <span className="font-mono text-[10px] text-fg-subtle">{formatBytes(file.size)}</span>
                 </span>
-              </div>
+              ))}
             </div>
-          );
-        })}
+          )}
+        </div>
+        <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+          {actions.onEdit && !message.id.startsWith("local-") && (
+            <ActionButton label="Edit and resend" onClick={() => actions.onEdit?.(message)}>
+              <Pencil className="h-3.5 w-3.5" />
+            </ActionButton>
+          )}
+          <ActionButton label={isCopied ? "Copied" : "Copy"} onClick={() => actions.onCopy(message.content, message.id)}>
+            {isCopied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+          </ActionButton>
+        </div>
       </div>
     </div>
   );
+}
+
+function AssistantBubble({ message, models, isCopied, showCosts, isLast, actions, column }: Props) {
+  const [showRaw, setShowRaw] = useState(false);
+  const provider = models.find((m) => m.id === message.model)?.provider ?? guessProvider(message.model);
+  const name = displayName(message.model, models);
+  const streaming = message.status === "streaming";
+  const trouble = message.status === "error" || message.status === "refused";
+  const reading = actions.readAloudState?.id === message.id ? actions.readAloudState.state : "idle";
+
+  return (
+    <div className={cn("group flex w-full min-w-0 flex-col animate-rise-in", column && "h-full")}>
+      <div className="mb-1.5 flex flex-wrap items-center gap-2 px-1">
+        <ProviderMark provider={provider} size="sm" />
+        <span className="text-xs font-semibold text-fg">{name}</span>
+        {message.intent && message.intent !== "pinned" && (
+          <Tooltip content={message.reason}>
+            <span>
+              <Badge tone="accent">Auto · {INTENT_LABELS[message.intent] ?? message.intent}</Badge>
+            </span>
+          </Tooltip>
+        )}
+        {message.status === "interrupted" && <Badge tone="warning">Stopped</Badge>}
+        {message.status === "length" && <Badge tone="warning">Cut short</Badge>}
+        {trouble && <Badge tone="danger">Failed</Badge>}
+        {streaming && (
+          <span className="flex items-center gap-1" aria-label="Generating">
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand-3" style={{ animationDelay: "140ms" }} />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand-2" style={{ animationDelay: "280ms" }} />
+          </span>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          "min-w-0 rounded-2xl rounded-tl-md border px-4 py-3.5 sm:px-5",
+          trouble ? "border-danger/30 bg-danger/5" : "border-line bg-surface",
+          column && "flex-1",
+        )}
+      >
+        {message.content ? (
+          showRaw ? (
+            <pre className="custom-scrollbar overflow-x-auto font-mono text-xs leading-relaxed whitespace-pre-wrap text-fg">{message.content}</pre>
+          ) : (
+            <Markdown content={message.content} />
+          )
+        ) : streaming ? (
+          <div className="space-y-2 py-1">
+            <div className="h-3 w-3/4 animate-shimmer rounded" />
+            <div className="h-3 w-1/2 animate-shimmer rounded" />
+          </div>
+        ) : null}
+
+        {message.notes && message.notes.length > 0 && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-fg-muted">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+            <span>{message.notes.join(" ")}</span>
+          </div>
+        )}
+      </div>
+
+      {!streaming && message.content && (
+        <div className="mt-1 flex flex-wrap items-center gap-0.5 px-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+          <ActionButton label={isCopied ? "Copied" : "Copy"} onClick={() => actions.onCopy(message.content, message.id)}>
+            {isCopied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+          </ActionButton>
+          {actions.onReadAloud && !message.id.startsWith("local-") && (
+            <ActionButton
+              label={reading === "playing" ? "Stop reading" : reading === "loading" ? "Preparing audio…" : "Read aloud"}
+              onClick={() => actions.onReadAloud?.(message)}
+              active={reading !== "idle"}
+            >
+              {reading === "playing" ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className={cn("h-3.5 w-3.5", reading === "loading" && "animate-pulse")} />}
+            </ActionButton>
+          )}
+          {isLast && actions.onRegenerate && (
+            <ActionButton label="Regenerate" onClick={() => actions.onRegenerate?.(message)}>
+              <RefreshCw className="h-3.5 w-3.5" />
+            </ActionButton>
+          )}
+          <ActionButton label={showRaw ? "Rendered view" : "Plain text"} onClick={() => setShowRaw((v) => !v)}>
+            <span className="font-mono text-[10px] font-semibold">{showRaw ? "MD" : "TXT"}</span>
+          </ActionButton>
+          {showCosts && (message.cost !== undefined || message.completionTokens) && (
+            <span className="ml-1 font-mono text-[11px] text-fg-subtle">
+              {message.cost !== undefined && message.cost !== null && `${formatCost(message.cost)} cr`}
+              {message.completionTokens ? ` · ${message.completionTokens} tok` : ""}
+              {message.durationMs ? ` · ${formatDuration(message.durationMs)}` : ""}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MessageBubbleComponent(props: Props) {
+  const { message } = props;
+
+  if (message.role === "system") {
+    return (
+      <div className="flex w-full justify-center animate-rise-in">
+        <div className="max-w-2xl rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-center text-xs text-fg-muted sm:text-sm">
+          {message.content}
+        </div>
+      </div>
+    );
+  }
+  if (message.role === "user") {
+    return <UserBubble message={message} isCopied={props.isCopied} actions={props.actions} />;
+  }
+  return <AssistantBubble {...props} />;
 }
 
 /**
  * One message in the transcript.
  *
  * `memo` is what keeps streaming smooth: only the message currently receiving
- * tokens re-renders. Without it every chunk re-rendered the entire transcript,
- * re-parsing markdown and re-highlighting every code block already on screen.
+ * tokens re-renders.
  */
-function MessageBubbleComponent({ message, isCopied, onCopy }: MessageBubbleProps) {
-  const { role, content, model, attachments } = message;
-
-  if (role === "system") {
-    return (
-      <div className="flex w-full justify-center animate-rise-in">
-        <div className="w-full max-w-3xl rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-center font-mono text-xs text-amber-700 sm:py-3 sm:px-5 sm:text-sm dark:text-amber-300/90">
-          {content}
-        </div>
-      </div>
-    );
-  }
-
-  const isUser = role === "user";
-
-  return (
-    <div className={cn("flex w-full animate-rise-in", isUser ? "justify-end" : "justify-start")}>
-      <div
-        className={cn(
-          "group relative min-w-0 rounded-2xl",
-          isUser
-            ? "max-w-[90%] rounded-br-sm bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 px-4 py-3 text-white shadow-lg shadow-blue-500/20 ring-1 ring-white/10 sm:max-w-[85%] sm:px-5 sm:py-4"
-            : "max-w-[95%] rounded-bl-sm border border-slate-200/80 bg-white px-4 py-4 text-slate-800 shadow-sm sm:max-w-[92%] sm:px-6 sm:py-5 dark:border-gray-700/30 dark:bg-[#13151c] dark:text-gray-100 dark:shadow-xl",
-        )}
-      >
-        {isUser ? (
-          <div className="space-y-3">
-            {content && (
-              <div className="break-words whitespace-pre-wrap text-sm leading-[1.7] sm:text-[15px]">
-                {content}
-              </div>
-            )}
-            {attachments && attachments.length > 0 && <AttachmentList attachments={attachments} />}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <Markdown content={content} />
-            {model && (
-              <div className="mt-1 flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-gray-700/40">
-                <span className="flex items-center gap-1.5 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2.5 py-1">
-                  <CpuChipIcon className="h-3 w-3 text-purple-600 sm:h-3.5 sm:w-3.5 dark:text-purple-400" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-purple-600 sm:text-[11px] dark:text-purple-300">
-                    {model}
-                  </span>
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Copy control. Always in the DOM so hovering does not reflow the
-            bubble; it is revealed on hover, and on touch (no hover) it is
-            permanently visible. */}
-        <button
-          type="button"
-          onClick={() => onCopy(content, message.id)}
-          className={cn(
-            "absolute -bottom-2.5 rounded-xl p-2 shadow-lg",
-            "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
-            "hover:scale-110 active:scale-95",
-            isUser
-              ? "-left-2.5 border border-blue-600/30 bg-blue-800/90 hover:bg-blue-700"
-              : "-right-2.5 border border-slate-200/80 bg-white hover:bg-slate-50 dark:border-gray-700/50 dark:bg-[#1e2029] dark:hover:bg-[#272b36]",
-          )}
-          aria-label="Copy message"
-        >
-          {isCopied ? (
-            <CheckIcon
-              className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", isUser ? "text-white" : "text-emerald-500")}
-            />
-          ) : (
-            <DocumentDuplicateIcon
-              className={cn(
-                "h-3.5 w-3.5 sm:h-4 sm:w-4",
-                isUser ? "text-white" : "text-slate-400 dark:text-gray-400",
-              )}
-            />
-          )}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export const MessageBubble = memo(MessageBubbleComponent);

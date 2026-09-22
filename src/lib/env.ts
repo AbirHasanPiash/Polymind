@@ -24,7 +24,7 @@ export const API_V1 = `${API_URL}/api/v1`;
 /**
  * WebSocket origin, derived from the API URL.
  *
- * It used to be hard-coded to `localhost:8000` or `api.multiaimodel.com`, which
+ * It used to be hard-coded to `localhost:8000` or `api.polymind.example`, which
  * broke on every other host (staging, a LAN IP, a preview deployment).
  */
 export const WS_URL = API_URL.replace(/^http/, "ws");

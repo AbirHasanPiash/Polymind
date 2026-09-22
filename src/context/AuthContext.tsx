@@ -1,7 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import api, { TOKEN_STORAGE_KEY, UNAUTHORIZED_EVENT, getStoredToken, setStoredToken } from "../api/client";
-import { AuthContext, type AuthContextValue, type User } from "./auth-context";
+import api, {
+  TOKEN_STORAGE_KEY,
+  UNAUTHORIZED_EVENT,
+  getStoredToken,
+  setStoredToken,
+  tokenSecondsRemaining,
+} from "../api/client";
+import { DEFAULT_PREFERENCES, type Preferences, type TokenResponse, type User } from "../api/types";
+import { AuthContext, type AuthContextValue } from "./auth-context";
+
+/** Refresh the token once less than this remains, while the tab is active. */
+const REFRESH_THRESHOLD_SECONDS = 15 * 60;
+const REFRESH_CHECK_MS = 60_000;
+
+function withDefaults(user: User): User {
+  return { ...user, preferences: { ...DEFAULT_PREFERENCES, ...(user.preferences ?? {}) } };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => getStoredToken());
@@ -23,12 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const id = ++requestId.current;
     try {
       const { data } = await api.get<User>("/users/me");
-      if (id === requestId.current) setUser(data);
+      if (id === requestId.current) setUser(withDefaults(data));
     } catch {
       // A 401 is handled by the response interceptor, which clears the session.
-      // Any other failure (network, 503) must not sign the user out. The
-      // previous version swallowed every error and left a token with no user,
-      // so guarded routes admitted the user and every page rendered empty.
+      // Any other failure (network, 503) must not sign the user out.
     }
   }, []);
 
@@ -42,18 +55,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSession();
   }, [clearSession]);
 
-  /** Stable identity, so callers can safely list this in an effect's deps.
-   *  As an inline function it changed on every render, and any effect
-   *  depending on it re-ran forever (the payment success page refetched the
-   *  profile in a loop). */
   const refreshProfile = useCallback(async () => {
     if (!getStoredToken()) return;
     await fetchProfile();
   }, [fetchProfile]);
 
+  const updatePreferences = useCallback(
+    async (patch: Partial<Preferences>) => {
+      const current = user?.preferences ?? DEFAULT_PREFERENCES;
+      const next = { ...current, ...patch };
+      const { data } = await api.patch<User>("/users/me", { preferences: next });
+      setUser(withDefaults(data));
+    },
+    [user?.preferences],
+  );
+
   // Load the profile whenever the token changes (mount, sign-in, token replaced
-  // in another tab). Clearing state on sign-out happens in clearSession, so this
-  // effect never has to set state synchronously.
+  // in another tab).
   useEffect(() => {
     if (!token) return;
 
@@ -68,6 +86,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [token, fetchProfile]);
+
+  // Sliding sessions: while the tab is in use, swap the token for a fresh one
+  // before it expires, so nobody is signed out mid-conversation.
+  useEffect(() => {
+    if (!token) return;
+
+    const maybeRefresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      const remaining = tokenSecondsRemaining(getStoredToken());
+      if (remaining === null || remaining > REFRESH_THRESHOLD_SECONDS || remaining <= 0) return;
+      try {
+        const { data } = await api.post<TokenResponse>("/auth/refresh");
+        setStoredToken(data.access_token);
+        setToken(data.access_token);
+      } catch {
+        // The interceptor signs the user out on a real 401; anything else waits for the next tick.
+      }
+    };
+
+    const timer = setInterval(() => void maybeRefresh(), REFRESH_CHECK_MS);
+    document.addEventListener("visibilitychange", maybeRefresh);
+    void maybeRefresh();
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", maybeRefresh);
+    };
+  }, [token]);
 
   // Raised by the API client when the backend rejects the stored token.
   useEffect(() => {
@@ -100,9 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       refreshProfile,
+      updatePreferences,
       setUser,
     }),
-    [user, token, isLoading, login, logout, refreshProfile],
+    [user, token, isLoading, login, logout, refreshProfile, updatePreferences],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

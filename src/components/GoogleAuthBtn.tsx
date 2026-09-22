@@ -5,19 +5,21 @@ import { useNavigate } from "react-router-dom";
 import api, { getErrorMessage } from "../api/client";
 import { useAuth } from "../context/auth-context";
 import { useToast } from "../context/toast-context";
-import { GOOGLE_CLIENT_ID } from "../lib/env";
+import { useGoogleLoginAvailable } from "./auth/useGoogleLoginAvailable";
 import { useTheme } from "./theme-context";
 
-export default function GoogleAuthBtn() {
+export default function GoogleAuthBtn({ redirectTo = "/dashboard" }: { redirectTo?: string }) {
   const { login } = useAuth();
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const toast = useToast();
+  const available = useGoogleLoginAvailable();
   const [isExchanging, setIsExchanging] = useState(false);
 
-  // Rendering the widget without a client id produces a broken iframe, so the
-  // button is simply omitted when Google sign-in is not configured.
-  if (!GOOGLE_CLIENT_ID) return null;
+  // Rendering the widget without a client id produces a broken iframe, and
+  // without a backend client id the exchange can only fail, so the button is
+  // simply omitted when Google sign-in is not configured.
+  if (!available) return null;
 
   const handleSuccess = async (credentialResponse: CredentialResponse) => {
     const credential = credentialResponse.credential;
@@ -28,11 +30,9 @@ export default function GoogleAuthBtn() {
 
     setIsExchanging(true);
     try {
-      const { data } = await api.post<{ access_token: string }>("/auth/google", {
-        token: credential,
-      });
+      const { data } = await api.post<{ access_token: string }>("/auth/google", { token: credential });
       login(data.access_token);
-      navigate("/dashboard", { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       toast.error(getErrorMessage(error, "Google sign-in failed"));
     } finally {
@@ -47,9 +47,9 @@ export default function GoogleAuthBtn() {
         onError={() => toast.error("Google sign-in was cancelled or blocked")}
         // Matching the app theme stops the widget from flashing a white pill
         // inside a dark card.
-        theme={resolvedTheme === "dark" ? "filled_blue" : "outline"}
+        theme={resolvedTheme === "dark" ? "filled_black" : "outline"}
         shape="pill"
-        width="260"
+        width="280"
         text="continue_with"
         logo_alignment="left"
       />

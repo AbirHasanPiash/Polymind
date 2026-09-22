@@ -1,27 +1,34 @@
 import { useCallback, useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import Header from "../components/Dashboard/Header";
-import Sidebar from "../components/Dashboard/Sidebar";
+import CommandPalette from "../components/layout/CommandPalette";
+import Header from "../components/layout/Header";
+import { HeaderSlotContext } from "../components/layout/header-slot";
+import MobileTabBar from "../components/layout/MobileTabBar";
+import { isChatRoute, pageTitle } from "../components/layout/nav";
+import Sidebar from "../components/layout/Sidebar";
+import { useAuth } from "../context/auth-context";
+import { useChatReset } from "../context/chat-reset-context";
+import { useHotkey } from "../hooks/useHotkeys";
 import { useIsMobile } from "../hooks/useMediaQuery";
+import { readString, writeString } from "../lib/storage";
 
 const SIDEBAR_STATE_KEY = "sidebar-open";
 
-function readStoredSidebarState(): boolean {
-  try {
-    return localStorage.getItem(SIDEBAR_STATE_KEY) !== "false";
-  } catch {
-    return true;
-  }
-}
-
 export default function DashboardLayout() {
   const isMobile = useIsMobile();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { triggerReset } = useChatReset();
 
   // On desktop the collapsed/expanded choice is the user's and is remembered.
   // On mobile the sidebar is a drawer that always starts closed.
-  const [desktopOpen, setDesktopOpen] = useState(readStoredSidebarState);
+  const [desktopOpen, setDesktopOpen] = useState(() => readString(SIDEBAR_STATE_KEY) !== "false");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  // The top bar's action slot; pages render into it through HeaderPortal.
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
 
   const isOpen = isMobile ? drawerOpen : desktopOpen;
 
@@ -31,22 +38,33 @@ export default function DashboardLayout() {
       return;
     }
     setDesktopOpen((open) => {
-      const next = !open;
-      try {
-        localStorage.setItem(SIDEBAR_STATE_KEY, String(next));
-      } catch {
-        // Preference simply is not persisted if storage is unavailable.
-      }
-      return next;
+      writeString(SIDEBAR_STATE_KEY, String(!open));
+      return !open;
     });
   }, [isMobile]);
 
-  // Navigating closes the drawer. Handled as an event from the sidebar rather
-  // than as a route effect, so no state is set during a render pass.
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const openPalette = useCallback(() => {
+    setDrawerOpen(false);
+    setPaletteOpen(true);
+  }, []);
 
-  // Lock body scroll behind the drawer so the page underneath cannot be
-  // scrolled by touch while the overlay is up.
+  useHotkey("mod+k", (event) => {
+    event.preventDefault();
+    setPaletteOpen((open) => !open);
+  }, { allowInInputs: true });
+
+  useHotkey(
+    "mod+shift+o",
+    (event) => {
+      event.preventDefault();
+      triggerReset();
+      navigate("/dashboard");
+    },
+    { allowInInputs: true },
+  );
+
+  // Lock body scroll behind the drawer.
   useEffect(() => {
     if (!isMobile || !drawerOpen) return;
     const previous = document.body.style.overflow;
@@ -56,7 +74,6 @@ export default function DashboardLayout() {
     };
   }, [isMobile, drawerOpen]);
 
-  // Escape closes the drawer.
   useEffect(() => {
     if (!drawerOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -66,29 +83,31 @@ export default function DashboardLayout() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [drawerOpen]);
 
+  const showTabBar = isMobile && !isChatRoute(pathname);
+
+  // The chat page names the tab after the conversation; every other page is
+  // named here.
+  useEffect(() => {
+    if (!isChatRoute(pathname)) document.title = `${pageTitle(pathname)} · Polymind`;
+  }, [pathname]);
+
   return (
     // h-dvh, not h-screen: on mobile browsers the dynamic viewport unit accounts
     // for the collapsing address bar, so the composer is not pushed off-screen.
-    <div className="flex h-dvh overflow-hidden font-sans app-surface text-slate-900 dark:text-gray-100">
-      <Sidebar
-        isOpen={isOpen}
-        toggle={toggleSidebar}
-        isMobile={isMobile}
-        onNavigate={closeDrawer}
-      />
+    <div className="flex h-dvh overflow-hidden bg-canvas text-fg">
+      <Sidebar isOpen={isOpen} toggle={toggleSidebar} isMobile={isMobile} onNavigate={closeDrawer} onOpenPalette={openPalette} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* The wordmark lives in the sidebar while it is open and moves to the
-            header when it collapses, so it is never on screen twice. */}
-        <Header toggleSidebar={toggleSidebar} isMobile={isMobile} showBrand={!isOpen} />
-
-        {/* The page owns its own scrolling and background; this container only
-            provides the box. It used to force a dark gradient here, which left
-            the whole content area dark even in light mode. */}
-        <main className="relative flex-1 overflow-hidden">
-          <Outlet />
+        <Header toggleSidebar={toggleSidebar} isMobile={isMobile} onSlotRef={setHeaderSlot} />
+        <main className={showTabBar ? "relative flex-1 overflow-hidden pb-14" : "relative flex-1 overflow-hidden"}>
+          <HeaderSlotContext.Provider value={headerSlot}>
+            <Outlet />
+          </HeaderSlotContext.Provider>
         </main>
       </div>
+
+      {showTabBar && <MobileTabBar onOpenMenu={toggleSidebar} />}
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} isAdmin={Boolean(user?.is_superuser)} />
     </div>
   );
 }

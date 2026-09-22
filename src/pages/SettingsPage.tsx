@@ -1,225 +1,695 @@
-import { useState, useEffect } from 'react';
-import { 
-  UserCircleIcon, 
-  EnvelopeIcon, 
-  CreditCardIcon, 
-  ShieldCheckIcon, 
-  CheckCircleIcon, 
-  ExclamationCircleIcon, 
-  ArrowPathIcon 
-} from '@heroicons/react/24/outline';
-import { useAuth } from '../context/auth-context';
-import { useToast } from '../context/toast-context';
-import api, { getErrorMessage } from '../api/client';
+import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import {
+  AlertTriangle,
+  BookmarkPlus,
+  Check,
+  KeyRound,
+  Monitor,
+  Moon,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Sun,
+  Trash2,
+  UserRound,
+} from "lucide-react";
+
+import api, { getErrorMessage } from "../api/client";
+import type { Effort, Preferences, SavedPrompt } from "../api/types";
+import { useTheme, type Theme } from "../components/theme-context";
+import { Button } from "../components/ui/button";
+import { ConfirmDialog, Dialog, DialogContent, DialogFooter, Switch } from "../components/ui/overlays";
+import {
+  Avatar,
+  Badge,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Field,
+  Input,
+  Page,
+  PageHeader,
+  Segmented,
+  Select,
+  Textarea,
+} from "../components/ui/primitives";
+import { useAuth } from "../context/auth-context";
+import { useToast } from "../context/toast-context";
+import { useModelCatalogue } from "../hooks/useModelCatalogue";
+import { formatDate } from "../lib/format";
+import { AUTO_MODEL, EFFORT_META, PROVIDER_META, groupByProvider } from "../lib/models";
+
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_INSTRUCTIONS = 4000;
+const MAX_SAVED_PROMPTS = 50;
+const EFFORTS: Effort[] = ["low", "medium", "high"];
+
+type PromptDraft = { id: string | null; title: string; content: string };
 
 export default function SettingsPage() {
-  const { user, refreshProfile } = useAuth();
+  const { user, refreshProfile, updatePreferences, logout } = useAuth();
   const toast = useToast();
-  
-  const [fullName, setFullName] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const { models } = useModelCatalogue();
+  const { theme, setTheme } = useTheme();
 
-  // Initialize form state from Context
-  useEffect(() => {
-    if (user) {
-      setFullName(user.full_name || '');
-    }
-  }, [user]);
+  const preferences: Preferences | undefined = user?.preferences;
 
-  // Clear messages after 3 seconds
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
+  // Profile
+  const [fullName, setFullName] = useState(() => user?.full_name ?? "");
+  const [savingProfile, setSavingProfile] = useState(false);
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setMessage(null);
+  // Assistant
+  const [instructions, setInstructions] = useState(() => preferences?.custom_instructions ?? "");
+  const [savingInstructions, setSavingInstructions] = useState(false);
+  const [savingPreference, setSavingPreference] = useState<string | null>(null);
 
+  // Saved prompts
+  const [promptDraft, setPromptDraft] = useState<PromptDraft | null>(null);
+  const [promptToDelete, setPromptToDelete] = useState<SavedPrompt | null>(null);
+  const [savingPrompt, setSavingPrompt] = useState(false);
+
+  // Security
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  // Danger zone
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  if (!user || !preferences) {
+    return (
+      <Page width="narrow">
+        <PageHeader eyebrow="Account" title="Settings" />
+        <p className="mt-6 text-sm text-fg-muted">Loading your profile…</p>
+      </Page>
+    );
+  }
+
+  const savedInstructions = preferences.custom_instructions ?? "";
+  const instructionsDirty = instructions.trim() !== savedInstructions.trim();
+  const profileDirty = fullName.trim() !== (user.full_name ?? "").trim();
+
+  /* ---------------------------------------------------------------- handlers */
+
+  const savePreference = async (key: string, patch: Partial<Preferences>, message = "Saved") => {
+    setSavingPreference(key);
     try {
-      // Send Update to Backend
-      await api.patch('/users/me', { 
-        full_name: fullName 
-      });
-
-      await refreshProfile();
-      
-      setMessage({ type: 'success', text: 'Profile updated successfully' });
-      toast.success('Profile updated');
+      await updatePreferences(patch);
+      toast.success(message);
     } catch (error) {
-      const text = getErrorMessage(error, 'Failed to update profile. Please try again.');
-      setMessage({ type: 'error', text });
-      toast.error(text);
+      toast.error(getErrorMessage(error, "Could not save your preference"));
     } finally {
-      setIsSaving(false);
+      setSavingPreference(null);
     }
   };
 
-  if (!user) return <div className="p-8 text-center text-slate-500 dark:text-gray-500">Loading profile...</div>;
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!profileDirty || savingProfile) return;
+    setSavingProfile(true);
+    try {
+      await api.patch("/users/me", { full_name: fullName.trim() || null });
+      await refreshProfile();
+      toast.success("Profile updated");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not update your profile"));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const saveInstructions = async () => {
+    if (!instructionsDirty || savingInstructions) return;
+    setSavingInstructions(true);
+    try {
+      await updatePreferences({ custom_instructions: instructions.trim() || null });
+      toast.success(instructions.trim() ? "Custom instructions saved" : "Custom instructions cleared");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not save your instructions"));
+    } finally {
+      setSavingInstructions(false);
+    }
+  };
+
+  const savePrompt = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!promptDraft || savingPrompt) return;
+    const title = promptDraft.title.trim();
+    const content = promptDraft.content.trim();
+    if (!title || !content) return;
+
+    const existing = preferences.saved_prompts;
+    const next = promptDraft.id
+      ? existing.map((prompt) => (prompt.id === promptDraft.id ? { ...prompt, title, content } : prompt))
+      : [...existing, { id: crypto.randomUUID(), title, content }];
+    if (next.length > MAX_SAVED_PROMPTS) {
+      toast.error(`You can keep up to ${MAX_SAVED_PROMPTS} saved prompts`);
+      return;
+    }
+
+    setSavingPrompt(true);
+    try {
+      await updatePreferences({ saved_prompts: next });
+      setPromptDraft(null);
+      toast.success(promptDraft.id ? "Prompt updated" : "Prompt saved");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not save the prompt"));
+    } finally {
+      setSavingPrompt(false);
+    }
+  };
+
+  const deletePrompt = async () => {
+    if (!promptToDelete) return;
+    setSavingPrompt(true);
+    try {
+      await updatePreferences({ saved_prompts: preferences.saved_prompts.filter((prompt) => prompt.id !== promptToDelete.id) });
+      setPromptToDelete(null);
+      toast.success("Prompt deleted");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not delete the prompt"));
+    } finally {
+      setSavingPrompt(false);
+    }
+  };
+
+  const changePassword = async (event: FormEvent) => {
+    event.preventDefault();
+    if (changingPassword) return;
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setPasswordError(`Use at least ${MIN_PASSWORD_LENGTH} characters`);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("The new passwords do not match");
+      return;
+    }
+    setPasswordError(null);
+    setChangingPassword(true);
+    try {
+      await api.post("/users/me/password", {
+        current_password: user.has_password ? currentPassword : undefined,
+        new_password: newPassword,
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      await refreshProfile();
+      toast.success("Password changed");
+    } catch (error) {
+      setPasswordError(getErrorMessage(error, "Could not change your password"));
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await api.request({
+        method: "DELETE",
+        url: "/users/me",
+        data: { password: user.has_password ? deletePassword : undefined, confirmation: "DELETE" },
+      });
+      toast.success("Your account has been deleted");
+      logout();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not delete your account"));
+      setDeleting(false);
+    }
+  };
+
+  const canDelete = deleteConfirmation === "DELETE" && (!user.has_password || deletePassword.length > 0);
+
+  /* ------------------------------------------------------------------ render */
 
   return (
-    <div className="flex flex-col h-full bg-blue-50 dark:bg-gradient-to-br dark:from-[#0a0b0f] dark:via-[#0d0e14] dark:to-[#0a0b0f] text-slate-900 dark:text-gray-100 overflow-y-auto custom-scrollbar transition-colors duration-300">
-      <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-8">
-        
-        {/* Page Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <UserCircleIcon className="w-8 h-8 text-blue-600 dark:text-blue-500" />
-            Account Settings
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-gray-400 mt-2">Manage your personal information and view account status.</p>
-        </div>
+    <Page width="narrow">
+      <PageHeader eyebrow="Account" title="Settings" description="Your profile, how the assistant behaves for you, and account security." />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Column: Identity Card & Wallet */}
-          <div className="lg:col-span-1 space-y-6">
-            
-            {/* Identity Card */}
-            <div className="bg-white dark:bg-slate-900/40 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm dark:shadow-xl relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-purple-500 to-blue-600 opacity-50" />
-              
-              <div className="flex flex-col items-center text-center">
-                {/* Avatar */}
-                <div className={`w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold shadow-lg mb-4 ring-4 ring-slate-100 dark:ring-slate-800/50 ${
-                  user.is_superuser 
-                    ? 'bg-gradient-to-tr from-red-500 to-orange-500 text-white' 
-                    : 'bg-gradient-to-tr from-blue-600 to-purple-600 text-white'
-                }`}>
-                  {user.email[0].toUpperCase()}
-                </div>
-
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">
-                  {user.full_name || 'Anonymous User'}
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-gray-400 font-mono mb-4">{user.email}</p>
-
-                {/* Role Badge */}
-                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
-                  user.is_superuser 
-                    ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20' 
-                    : 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20'
-                }`}>
-                  {user.is_superuser ? (
-                    <><ShieldCheckIcon className="w-3 h-3" /> Administrator</>
-                  ) : (
-                    <><UserCircleIcon className="w-3 h-3" /> Standard User</>
-                  )}
-                </div>
+      <div className="mt-6 space-y-6">
+        {/* Profile */}
+        <Card>
+          <CardHeader
+            title="Profile"
+            description="How you appear in Polymind."
+            action={
+              user.is_superuser ? (
+                <Badge tone="warning">
+                  <ShieldCheck className="h-3 w-3" /> Admin
+                </Badge>
+              ) : undefined
+            }
+          />
+          <CardBody>
+            <div className="flex items-center gap-4">
+              <Avatar name={user.full_name || user.email} admin={user.is_superuser} size="lg" />
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold text-fg">{user.full_name || "Unnamed"}</p>
+                <p className="truncate text-sm text-fg-muted">{user.email}</p>
+                {user.created_at && <p className="mt-0.5 text-xs text-fg-subtle">Member since {formatDate(user.created_at)}</p>}
               </div>
             </div>
 
-            {/* Wallet Summary Card */}
-            <div className="bg-white dark:bg-slate-900/40 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm dark:shadow-xl relative overflow-hidden">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-500 mb-1">Current Balance</p>
-                  <h3 className="text-3xl font-bold text-slate-900 dark:text-white font-mono">
-                    {Number(user.wallet?.credits || 0).toLocaleString()}
-                  </h3>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Available Credits</p>
-                </div>
-                <div className="p-3 bg-blue-100 dark:bg-blue-500/10 rounded-xl">
-                  <CreditCardIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                </div>
+            <form onSubmit={(event) => void saveProfile(event)} className="mt-6 grid gap-4 sm:grid-cols-2">
+              <Field label="Full name" htmlFor="full_name">
+                <Input
+                  id="full_name"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder="Your name"
+                  maxLength={120}
+                  autoComplete="name"
+                />
+              </Field>
+              <Field label="Email" htmlFor="email" hint="Your email is your sign-in and cannot be changed here.">
+                <Input id="email" value={user.email} disabled readOnly />
+              </Field>
+              <div className="sm:col-span-2 flex justify-end">
+                <Button type="submit" disabled={!profileDirty} loading={savingProfile}>
+                  <UserRound />
+                  Save profile
+                </Button>
               </div>
+            </form>
+          </CardBody>
+        </Card>
+
+        {/* Assistant */}
+        <Card>
+          <CardHeader title="Assistant" description="Defaults for every new conversation. You can still change them per message." />
+          <CardBody className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Default model"
+                htmlFor="default_model"
+                hint={
+                  savingPreference === "default_model"
+                    ? "Saving…"
+                    : "Auto reads each message and picks the best model for it."
+                }
+              >
+                <Select
+                  id="default_model"
+                  value={preferences.default_model}
+                  disabled={savingPreference === "default_model"}
+                  onChange={(event) => void savePreference("default_model", { default_model: event.target.value }, "Default model saved")}
+                >
+                  <option value={AUTO_MODEL}>Auto — smart routing</option>
+                  {groupByProvider(models).map((group) => (
+                    <optgroup key={group.provider} label={PROVIDER_META[group.provider].label}>
+                      {group.models.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.display_name}
+                          {model.badge ? ` (${model.badge})` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field label="Reasoning depth" hint={EFFORT_META[preferences.default_effort].hint}>
+                <Segmented<Effort>
+                  aria-label="Default reasoning depth"
+                  size="md"
+                  className="w-full [&>button]:flex-1"
+                  value={preferences.default_effort}
+                  onChange={(effort) => void savePreference("default_effort", { default_effort: effort }, "Reasoning depth saved")}
+                  options={EFFORTS.map((effort) => ({ value: effort, label: EFFORT_META[effort].label, title: EFFORT_META[effort].hint }))}
+                />
+              </Field>
             </div>
 
-          </div>
-
-          {/* Right Column: Edit Form */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-slate-900/40 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-sm dark:shadow-xl">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                Personal Information
-              </h3>
-
-              <form onSubmit={handleUpdateProfile} className="space-y-6">
-                
-                {/* Email Field (Read Only) */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-400">Email Address</label>
-                  <div className="relative">
-                    <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-gray-600" />
-                    <input
-                      type="email"
-                      disabled
-                      value={user.email}
-                      className="w-full bg-slate-100 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-500 dark:text-gray-500 cursor-not-allowed select-none"
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 dark:text-gray-600 italic">
-                      Cannot be changed
-                    </div>
-                  </div>
-                </div>
-
-                {/* Full Name Field (Editable) */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-gray-300">Full Name</label>
-                  <div className="relative group">
-                    <UserCircleIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-gray-500 group-focus-within:text-blue-500 transition-colors" />
-                    <input
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Enter your full name"
-                      className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-400 dark:placeholder:text-gray-600"
-                    />
-                  </div>
-                </div>
-
-                {/* Status Message Area */}
-                <div className="h-6">
-                  {message && (
-                    <div className={`flex items-center gap-2 text-sm animate-in fade-in slide-in-from-bottom-1 duration-300 ${message.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-red-400'}`}>
-                      {message.type === 'success' ? <CheckCircleIcon className="w-4 h-4" /> : <ExclamationCircleIcon className="w-4 h-4" />}
-                      {message.text}
-                    </div>
+            <Field
+              label="Custom instructions"
+              htmlFor="custom_instructions"
+              hint="Sent with every message: your role, preferred tone, formats you like, things to avoid."
+            >
+              <Textarea
+                id="custom_instructions"
+                value={instructions}
+                onChange={(event) => setInstructions(event.target.value)}
+                maxLength={MAX_INSTRUCTIONS}
+                rows={5}
+                placeholder="e.g. I'm a backend engineer. Prefer concise answers with code first, then a short explanation."
+              />
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <span className="font-mono text-[11px] text-fg-subtle">
+                  {instructions.length} / {MAX_INSTRUCTIONS}
+                </span>
+                <div className="flex items-center gap-2">
+                  {!instructionsDirty && savedInstructions && (
+                    <span className="flex items-center gap-1 text-xs text-success">
+                      <Check className="h-3.5 w-3.5" /> Saved
+                    </span>
                   )}
+                  {instructionsDirty && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setInstructions(savedInstructions)}>
+                      Discard
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" disabled={!instructionsDirty} loading={savingInstructions} onClick={() => void saveInstructions()}>
+                    Save instructions
+                  </Button>
                 </div>
+              </div>
+            </Field>
 
-                {/* Actions */}
-                <div className="flex items-center justify-end pt-4 border-t border-slate-200 dark:border-slate-800/50">
+            <div className="divide-y divide-line rounded-xl border border-line">
+              <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3">
+                <span>
+                  <span className="block text-sm font-medium text-fg">Send with Enter</span>
+                  <span className="block text-xs text-fg-muted">Off: Enter adds a line and ⌘/Ctrl + Enter sends.</span>
+                </span>
+                <Switch
+                  checked={preferences.send_on_enter}
+                  disabled={savingPreference === "send_on_enter"}
+                  onCheckedChange={(checked) => void savePreference("send_on_enter", { send_on_enter: checked })}
+                  aria-label="Send with Enter"
+                />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3">
+                <span>
+                  <span className="block text-sm font-medium text-fg">Show cost per reply</span>
+                  <span className="block text-xs text-fg-muted">Credits, tokens and time under each answer.</span>
+                </span>
+                <Switch
+                  checked={preferences.show_costs}
+                  disabled={savingPreference === "show_costs"}
+                  onCheckedChange={(checked) => void savePreference("show_costs", { show_costs: checked })}
+                  aria-label="Show cost per reply"
+                />
+              </label>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Saved prompts */}
+        <Card>
+          <CardHeader
+            title="Saved prompts"
+            description={`Reusable prompts you can drop into any chat from the composer. ${preferences.saved_prompts.length} of ${MAX_SAVED_PROMPTS}.`}
+            action={
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={preferences.saved_prompts.length >= MAX_SAVED_PROMPTS}
+                onClick={() => setPromptDraft({ id: null, title: "", content: "" })}
+              >
+                <Plus />
+                Add prompt
+              </Button>
+            }
+          />
+          <CardBody className="pt-3">
+            {preferences.saved_prompts.length === 0 ? (
+              <EmptyState
+                className="py-8"
+                icon={<BookmarkPlus className="h-6 w-6" />}
+                title="No saved prompts yet"
+                description="Save the instructions you type again and again — a code review checklist, a summary format, a tone guide."
+                action={
+                  <Button size="sm" onClick={() => setPromptDraft({ id: null, title: "", content: "" })}>
+                    <Plus />
+                    Add your first prompt
+                  </Button>
+                }
+              />
+            ) : (
+              <ul className="divide-y divide-line">
+                {preferences.saved_prompts.map((prompt) => (
+                  <li key={prompt.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                      <Sparkles className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-fg">{prompt.title}</p>
+                      <p className="mt-0.5 text-xs text-fg-muted line-clamp-2">{prompt.content}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setPromptDraft({ id: prompt.id, title: prompt.title, content: prompt.content })}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-fg-subtle hover:bg-surface-2 hover:text-fg"
+                        aria-label={`Edit ${prompt.title}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPromptToDelete(prompt)}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-fg-subtle hover:bg-danger/10 hover:text-danger"
+                        aria-label={`Delete ${prompt.title}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Appearance */}
+        <Card>
+          <CardHeader title="Appearance" description="Pick a theme, or follow your device." />
+          <CardBody>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {(
+                [
+                  { value: "light", label: "Light", icon: Sun },
+                  { value: "dark", label: "Dark", icon: Moon },
+                  { value: "system", label: "System", icon: Monitor },
+                ] as { value: Theme; label: string; icon: typeof Sun }[]
+              ).map((option) => {
+                const active = theme === option.value;
+                return (
                   <button
-                    type="submit"
-                    disabled={isSaving || fullName === user.full_name}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                    key={option.value}
+                    type="button"
+                    onClick={() => setTheme(option.value)}
+                    aria-pressed={active}
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                      active ? "border-accent bg-accent-soft text-fg" : "border-line bg-surface-2/40 text-fg-muted hover:border-line-strong hover:text-fg"
+                    }`}
                   >
-                    {isSaving ? (
-                      <>
-                        <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Changes'
-                    )}
+                    <option.icon className={`h-5 w-5 ${active ? "text-accent" : ""}`} />
+                    <span className="text-sm font-medium">{option.label}</span>
+                    {active && <Check className="ml-auto h-4 w-4 text-accent" />}
                   </button>
+                );
+              })}
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Security */}
+        <Card>
+          <CardHeader title="Security" description={user.has_password ? "Change the password you sign in with." : "Manage how you sign in."} />
+          <CardBody>
+            {user.has_password ? (
+              <form onSubmit={(event) => void changePassword(event)} className="grid gap-4 sm:grid-cols-2">
+                <Field label="Current password" htmlFor="current_password" className="sm:col-span-2">
+                  <Input
+                    id="current_password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                </Field>
+                <Field label="New password" htmlFor="new_password" hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}>
+                  <Input
+                    id="new_password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={MIN_PASSWORD_LENGTH}
+                    required
+                  />
+                </Field>
+                <Field label="Confirm new password" htmlFor="confirm_password" error={passwordError}>
+                  <Input
+                    id="confirm_password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </Field>
+                <div className="sm:col-span-2 flex justify-end">
+                  <Button type="submit" loading={changingPassword} disabled={!currentPassword || !newPassword || !confirmPassword}>
+                    <KeyRound />
+                    Change password
+                  </Button>
                 </div>
               </form>
-            </div>
-
-            {/* Account Status Indicator */}
-            <div className="mt-6 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/20 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${user.is_active ? 'bg-emerald-100 dark:bg-emerald-500/10' : 'bg-rose-100 dark:bg-red-500/10'}`}>
-                   {user.is_active 
-                    ? <CheckCircleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-500" /> 
-                    : <ExclamationCircleIcon className="w-5 h-5 text-rose-600 dark:text-red-500" />
-                   }
+            ) : (
+              <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface-2/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                    <KeyRound className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-fg">This account signs in with Google</p>
+                    <p className="mt-0.5 text-xs text-fg-muted">
+                      To add a password as a second way in, use the reset flow: we will email you a link to set one.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Account Status</h4>
-                  <p className="text-xs text-slate-500 dark:text-gray-400">{user.is_active ? 'Your account is fully active.' : 'Your account is restricted.'}</p>
-                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/forgot-password">Set a password</Link>
+                </Button>
               </div>
-            </div>
-          </div>
-        </div>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Danger zone */}
+        <Card className="border-danger/30">
+          <CardHeader title="Danger zone" description="Irreversible actions. Please be certain." />
+          <CardBody>
+            {user.is_superuser ? (
+              <div className="flex items-start gap-3 rounded-xl border border-line bg-surface-2/50 p-4">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                <p className="text-sm text-fg-muted">Admin accounts cannot delete themselves. Ask another administrator to remove this account.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-fg">Delete account</p>
+                  <p className="mt-0.5 text-xs text-fg-muted">
+                    Removes your conversations, generated media, transactions and remaining credits. This cannot be undone.
+                  </p>
+                </div>
+                <Button variant="danger-soft" onClick={() => setDeleteOpen(true)}>
+                  <Trash2 />
+                  Delete my account
+                </Button>
+              </div>
+            )}
+          </CardBody>
+        </Card>
       </div>
-    </div>
+
+      {/* Prompt editor */}
+      <Dialog open={promptDraft !== null} onOpenChange={(open) => !open && !savingPrompt && setPromptDraft(null)}>
+        <DialogContent title={promptDraft?.id ? "Edit prompt" : "New saved prompt"} description="Insert it into any chat from the bookmark button in the composer.">
+          <form onSubmit={(event) => void savePrompt(event)} className="space-y-4">
+            <Field label="Title" htmlFor="prompt_title">
+              <Input
+                id="prompt_title"
+                value={promptDraft?.title ?? ""}
+                onChange={(event) => setPromptDraft((draft) => (draft ? { ...draft, title: event.target.value } : draft))}
+                maxLength={80}
+                placeholder="e.g. Code review checklist"
+                autoFocus
+                required
+              />
+            </Field>
+            <Field label="Prompt" htmlFor="prompt_content">
+              <Textarea
+                id="prompt_content"
+                value={promptDraft?.content ?? ""}
+                onChange={(event) => setPromptDraft((draft) => (draft ? { ...draft, content: event.target.value } : draft))}
+                maxLength={4000}
+                rows={6}
+                placeholder="Review the following code for bugs, security issues and readability…"
+                required
+              />
+              <p className="mt-1 text-right font-mono text-[11px] text-fg-subtle">{promptDraft?.content.length ?? 0} / 4000</p>
+            </Field>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPromptDraft(null)} disabled={savingPrompt}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={savingPrompt} disabled={!promptDraft?.title.trim() || !promptDraft?.content.trim()}>
+                {promptDraft?.id ? "Save changes" : "Save prompt"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={promptToDelete !== null}
+        onOpenChange={(open) => !open && setPromptToDelete(null)}
+        title="Delete this saved prompt?"
+        description={promptToDelete ? `“${promptToDelete.title}” will be removed from your library.` : undefined}
+        loading={savingPrompt}
+        onConfirm={deletePrompt}
+      />
+
+      {/* Delete account */}
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          if (deleting) return;
+          setDeleteOpen(open);
+          if (!open) {
+            setDeleteConfirmation("");
+            setDeletePassword("");
+          }
+        }}
+      >
+        <DialogContent
+          title="Delete your account?"
+          description="Everything you created in Polymind will be permanently erased, including any credits left in your wallet."
+          size="sm"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (canDelete) void deleteAccount();
+            }}
+            className="space-y-4"
+          >
+            <Field label={<span>Type <span className="font-mono font-semibold text-danger">DELETE</span> to confirm</span>} htmlFor="delete_confirmation">
+              <Input
+                id="delete_confirmation"
+                value={deleteConfirmation}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="DELETE"
+              />
+            </Field>
+            {user.has_password && (
+              <Field label="Your password" htmlFor="delete_password">
+                <Input
+                  id="delete_password"
+                  type="password"
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                  autoComplete="current-password"
+                />
+              </Field>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+                Keep my account
+              </Button>
+              <Button type="submit" variant="danger" loading={deleting} disabled={!canDelete}>
+                Delete permanently
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </Page>
   );
 }
